@@ -168,26 +168,45 @@ export default function BrainDashboard() {
   }
 
   const updateAIConfig = async (updates: Partial<AIConfig>) => {
-    if (!aiConfig) return
-
     try {
-      const updateData = {
-        agent_name: updates.agentName ?? aiConfig.agentName,
-        agent_mission: updates.agentMission ?? aiConfig.agentMission,
-        agent_personality: updates.agentPersonality ?? aiConfig.agentPersonality,
-        llm_api_key: updates.llmApiKey ?? aiConfig.llmApiKey,
-        llm_model: updates.llmModel ?? aiConfig.llmModel,
-        llm_api_url: updates.llmApiUrl ?? aiConfig.llmApiUrl,
-        temperature: updates.temperature ?? aiConfig.temperature,
-        avatar_url: updates.avatarUrl ?? aiConfig.avatarUrl,
-        avatar_position: updates.avatarPosition ?? aiConfig.avatarPosition
-      }
+      if (!aiConfig) {
+        // Create new AI config if none exists
+        const defaultConfig = {
+          agent_name: updates.agentName || 'Assistant Virtuel',
+          agent_mission: updates.agentMission || 'Je suis votre assistant virtuel pour vous aider avec vos questions.',
+          agent_personality: updates.agentPersonality || 'Je suis professionnel, serviable et à l\'écoute.',
+          llm_api_key: updates.llmApiKey || '',
+          llm_model: updates.llmModel || 'gpt-4',
+          llm_api_url: updates.llmApiUrl || 'https://api.openai.com/v1',
+          temperature: updates.temperature ?? 0.7,
+          avatar_url: updates.avatarUrl || null,
+          avatar_position: updates.avatarPosition || null
+        }
+        
+        await supabase.from('ai_config').insert(defaultConfig)
+      } else {
+        // Update existing config
+        const updateData = {
+          agent_name: updates.agentName ?? aiConfig.agentName,
+          agent_mission: updates.agentMission ?? aiConfig.agentMission,
+          agent_personality: updates.agentPersonality ?? aiConfig.agentPersonality,
+          llm_api_key: updates.llmApiKey ?? aiConfig.llmApiKey,
+          llm_model: updates.llmModel ?? aiConfig.llmModel,
+          llm_api_url: updates.llmApiUrl ?? aiConfig.llmApiUrl,
+          temperature: updates.temperature ?? aiConfig.temperature,
+          avatar_url: updates.avatarUrl ?? aiConfig.avatarUrl,
+          avatar_position: updates.avatarPosition ?? aiConfig.avatarPosition
+        }
 
-      await supabase.from('ai_config').update(updateData).eq('id', aiConfig.id)
-      loadData()
+        await supabase.from('ai_config').update(updateData).eq('id', aiConfig.id)
+      }
+      
+      // Reload data to refresh the interface
+      await loadData()
+      alert('✅ Configuration sauvegardée avec succès !')
     } catch (error) {
       console.error('Error updating AI config:', error)
-      alert('Erreur lors de la mise à jour')
+      alert('❌ Erreur lors de la sauvegarde. Vérifiez votre connexion.')
     }
   }
 
