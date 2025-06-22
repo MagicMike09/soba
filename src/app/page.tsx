@@ -263,7 +263,6 @@ Réponds de manière naturelle et conversationnelle en français.`
           content={brandConfig?.infoBoxContent}
           mediaUrl={brandConfig?.infoBoxMediaUrl}
           mediaType={brandConfig?.infoBoxMediaType}
-          onClose={() => setShowInfoBox(false)}
         />
       </main>
 

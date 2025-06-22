@@ -8,15 +8,13 @@ interface InfoBoxProps {
   content?: string
   mediaUrl?: string
   mediaType?: 'image' | 'video'
-  onClose: () => void
 }
 
 const InfoBox: React.FC<InfoBoxProps> = ({
   isVisible,
   content,
   mediaUrl,
-  mediaType,
-  onClose
+  mediaType
 }) => {
   const [imageError, setImageError] = useState(false)
   const [videoError, setVideoError] = useState(false)
@@ -41,11 +39,11 @@ const InfoBox: React.FC<InfoBoxProps> = ({
   const detectedMediaType = getMediaType()
 
   return (
-    <div className="fixed bottom-8 left-8 max-w-md z-50">
+    <div className="fixed bottom-8 left-8 max-w-lg z-50">
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden neo-minimal">
         <div className="relative">
           {mediaUrl && (
-            <div className="w-full h-48 bg-gray-100 relative">
+            <div className="w-full h-64 bg-gray-100 relative">
               {detectedMediaType === 'image' && !imageError ? (
                 <Image
                   src={mediaUrl}
@@ -76,19 +74,12 @@ const InfoBox: React.FC<InfoBoxProps> = ({
               )}
             </div>
           )}
-          
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
-          >
-            ×
-          </button>
         </div>
 
         {content && (
-          <div className="p-6">
+          <div className="p-8">
             <div 
-              className="text-gray-800 text-sm leading-relaxed"
+              className="text-gray-800 text-base leading-relaxed"
               dangerouslySetInnerHTML={{ __html: content }}
             />
           </div>
