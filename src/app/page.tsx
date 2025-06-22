@@ -70,7 +70,8 @@ function MainContent() {
           phone: advisor.phone,
           email: advisor.email,
           photoUrl: advisor.photo_url,
-          position: advisor.position
+          position: advisor.position,
+          isAvailable: advisor.is_available ?? true
         })))
       }
 

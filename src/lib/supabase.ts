@@ -18,6 +18,7 @@ export type Database = {
           email: string
           photo_url: string | null
           position: string
+          is_available: boolean
           created_at: string
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           email: string
           photo_url?: string | null
           position: string
+          is_available?: boolean
           created_at?: string
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           email?: string
           photo_url?: string | null
           position?: string
+          is_available?: boolean
           created_at?: string
         }
       }
