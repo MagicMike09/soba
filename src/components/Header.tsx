@@ -8,7 +8,6 @@ interface HeaderProps {
   onConverseClick: () => void
   onCallClick: () => void
   onHelpClick: () => void
-  isRecording?: boolean
   isConversationMode?: boolean
   onStopAI?: () => void
 }
@@ -18,7 +17,6 @@ const Header: React.FC<HeaderProps> = ({
   onConverseClick,
   onCallClick,
   onHelpClick,
-  isRecording = false,
   isConversationMode = false,
   onStopAI
 }) => {
@@ -48,24 +46,20 @@ const Header: React.FC<HeaderProps> = ({
           onClick={onConverseClick}
           className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
             isConversationMode
-              ? 'bg-red-500 text-white'
-              : isRecording
-              ? 'bg-orange-500 text-white animate-pulse'
+              ? 'bg-red-500 text-white hover:bg-red-600'
               : 'bg-black text-white hover:bg-gray-800 hover:transform hover:scale-105'
           }`}
         >
           {isConversationMode ? (
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-              <span>Arrêter conversation</span>
-            </div>
-          ) : isRecording ? (
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-              <span>Écoute...</span>
+              <span>Arrêter</span>
             </div>
           ) : (
-            'Converser'
+            <div className="flex items-center space-x-2">
+              <span>🎤</span>
+              <span>Converser</span>
+            </div>
           )}
         </button>
 

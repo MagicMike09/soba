@@ -10,6 +10,12 @@ export class OpenAIService {
   async textToSpeech(text: string, voice: string = 'alloy'): Promise<ArrayBuffer> {
     console.log('🔊 TTS Request:', { textLength: text.length, voice, model: 'tts-1' })
     
+    // Nettoyer et limiter le texte
+    const cleanText = text.trim().substring(0, 4000)
+    if (!cleanText) {
+      throw new Error('Texte vide pour la synthèse vocale')
+    }
+    
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -18,31 +24,54 @@ export class OpenAIService {
       },
       body: JSON.stringify({
         model: 'tts-1',
-        input: text.substring(0, 4000), // Limit to 4000 chars to avoid API limits
+        input: cleanText,
         voice: voice,
-        response_format: 'mp3'
+        response_format: 'mp3',
+        speed: 1.0
       }),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
       console.error('❌ TTS API error:', response.status, response.statusText, errorText)
-      throw new Error(`TTS API error: ${response.status} ${response.statusText}`)
+      
+      if (response.status === 401) {
+        throw new Error('Clé API OpenAI invalide ou expirée')
+      } else if (response.status === 429) {
+        throw new Error('Limite de taux API atteinte. Attendez un moment.')
+      } else {
+        throw new Error(`Erreur TTS: ${response.status} ${response.statusText}`)
+      }
     }
 
     const arrayBuffer = await response.arrayBuffer()
     console.log('✅ TTS Response received, size:', arrayBuffer.byteLength, 'bytes')
+    
+    if (arrayBuffer.byteLength === 0) {
+      throw new Error('Audio TTS vide reçu')
+    }
+    
     return arrayBuffer
   }
 
   async speechToText(audioBlob: Blob): Promise<string> {
     console.log('📝 STT Request:', { blobSize: audioBlob.size, blobType: audioBlob.type })
     
+    if (audioBlob.size < 1000) {
+      throw new Error('Audio trop court pour la transcription')
+    }
+    
+    // Préparer le fichier audio avec le bon nom et extension
+    const fileName = audioBlob.type.includes('webm') ? 'audio.webm' : 
+                    audioBlob.type.includes('mp4') ? 'audio.mp4' : 
+                    audioBlob.type.includes('ogg') ? 'audio.ogg' : 'audio.wav'
+    
     const formData = new FormData()
-    formData.append('file', audioBlob, 'audio.webm')
+    formData.append('file', audioBlob, fileName)
     formData.append('model', 'whisper-1')
     formData.append('response_format', 'text')
     formData.append('language', 'fr') // Force French for better recognition
+    formData.append('temperature', '0') // Plus précis
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -55,12 +84,25 @@ export class OpenAIService {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('❌ STT API error:', response.status, response.statusText, errorText)
-      throw new Error(`STT API error: ${response.status} ${response.statusText}`)
+      
+      if (response.status === 401) {
+        throw new Error('Clé API OpenAI invalide ou expirée')
+      } else if (response.status === 429) {
+        throw new Error('Limite de taux API atteinte. Attendez un moment.')
+      } else {
+        throw new Error(`Erreur STT: ${response.status} ${response.statusText}`)
+      }
     }
 
     const transcript = await response.text()
-    console.log('✅ STT Response:', transcript)
-    return transcript
+    const cleanTranscript = transcript.trim()
+    console.log('✅ STT Response:', cleanTranscript)
+    
+    if (!cleanTranscript) {
+      console.log('⚠️ Empty transcript received')
+    }
+    
+    return cleanTranscript
   }
 
   async generateResponse(
@@ -144,23 +186,37 @@ export class AudioRecorder {
 
   async startRecording(onSilenceDetected?: () => void): Promise<void> {
     try {
-      console.log('🎤 Starting recording with silence detection...')
+      console.log('🎤 Starting recording...')
+      
+      // Nettoyer les ressources précédentes
+      this.cleanup()
+      
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 16000 // Optimiser pour Whisper
         }
       })
       
-      // Setup silence detection
-      if (onSilenceDetected) {
-        this.setupSilenceDetection(onSilenceDetected)
+      // Configurer MediaRecorder avec un format compatible
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus'
+      ]
+      
+      let mimeType = 'audio/webm'
+      for (const type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type
+          break
+        }
       }
       
-      this.mediaRecorder = new MediaRecorder(this.stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
+      this.mediaRecorder = new MediaRecorder(this.stream, { mimeType })
       this.chunks = []
 
       this.mediaRecorder.ondataavailable = (event) => {
@@ -168,56 +224,89 @@ export class AudioRecorder {
           this.chunks.push(event.data)
         }
       }
+      
+      this.mediaRecorder.onerror = (event) => {
+        console.error('❌ MediaRecorder error:', event)
+      }
 
-      this.mediaRecorder.start(100) // Collect data every 100ms for real-time processing
-      console.log('✅ Recording started successfully')
+      // Setup silence detection si demandé
+      if (onSilenceDetected) {
+        this.setupSilenceDetection(onSilenceDetected)
+      }
+
+      this.mediaRecorder.start(250) // Collecter des données toutes les 250ms
+      console.log('✅ Recording started with mime type:', mimeType)
     } catch (error) {
       console.error('❌ Error starting recording:', error)
-      throw new Error(`Failed to start recording: ${error}`)
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        throw new Error('Accès au microphone refusé. Veuillez autoriser l\'accès au microphone.')
+      } else if (error instanceof DOMException && error.name === 'NotFoundError') {
+        throw new Error('Aucun microphone détecté. Vérifiez votre matériel audio.')
+      } else {
+        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+        throw new Error(`Erreur microphone: ${errorMessage}`)
+      }
     }
   }
 
   private setupSilenceDetection(onSilenceDetected: () => void): void {
     try {
-      this.audioContext = new AudioContext()
+      this.audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
       const source = this.audioContext.createMediaStreamSource(this.stream!)
       this.analyser = this.audioContext.createAnalyser()
       
-      this.analyser.fftSize = 256
+      // Configuration optimisée pour la détection de silence
+      this.analyser.fftSize = 512
+      this.analyser.smoothingTimeConstant = 0.3
       source.connect(this.analyser)
       
       const bufferLength = this.analyser.frequencyBinCount
       const dataArray = new Uint8Array(bufferLength)
       
+      let silenceCount = 0
+      const silenceThreshold = 15 // Seuil plus robuste
+      const requiredSilenceChecks = 12 // ~3 secondes à 250ms par check
+      
       const checkSilence = () => {
         if (!this.analyser || !this.silenceDetection) return
         
         this.analyser.getByteFrequencyData(dataArray)
-        const average = dataArray.reduce((a, b) => a + b) / bufferLength
         
-        if (average < 10) { // Threshold for silence
-          if (!this.silenceTimeout) {
-            this.silenceTimeout = setTimeout(() => {
-              console.log('🔇 Silence detected - stopping recording')
-              onSilenceDetected()
-            }, 3000) // 3 seconds of silence
+        // Calculer le niveau audio moyen
+        const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength
+        
+        if (average < silenceThreshold) {
+          silenceCount++
+          console.log(`🔇 Silence detected (${silenceCount}/${requiredSilenceChecks}), level: ${average.toFixed(1)}`)
+          
+          if (silenceCount >= requiredSilenceChecks) {
+            console.log('🔇 3 seconds of silence - triggering callback')
+            this.silenceDetection = false
+            onSilenceDetected()
+            return
           }
         } else {
-          if (this.silenceTimeout) {
-            clearTimeout(this.silenceTimeout)
-            this.silenceTimeout = null
+          if (silenceCount > 0) {
+            console.log(`🔊 Audio detected, resetting silence count (level: ${average.toFixed(1)})`)
           }
+          silenceCount = 0
         }
         
         if (this.silenceDetection) {
-          requestAnimationFrame(checkSilence)
+          setTimeout(checkSilence, 250) // Vérifier toutes les 250ms
         }
       }
       
       this.silenceDetection = true
-      checkSilence()
+      console.log('✅ Silence detection started')
+      setTimeout(checkSilence, 250) // Démarrer après un délai
     } catch (error) {
       console.warn('⚠️ Silence detection setup failed:', error)
+      // Fallback: déclencher après 5 secondes sans détection
+      setTimeout(() => {
+        console.log('🔇 Fallback: triggering after 5 seconds')
+        onSilenceDetected()
+      }, 5000)
     }
   }
 
