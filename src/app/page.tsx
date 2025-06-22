@@ -111,6 +111,7 @@ function MainContent() {
           llmModel: aiResult.data.llm_model,
           llmApiUrl: aiResult.data.llm_api_url,
           temperature: aiResult.data.temperature,
+          ttsVoice: aiResult.data.tts_voice || 'alloy',
           avatarUrl: aiResult.data.avatar_url,
           avatarPosition: aiResult.data.avatar_position
         })
@@ -225,7 +226,7 @@ Réponds de manière naturelle et conversationnelle en français. Garde tes rép
         // TTS - Text to Speech et lecture
         setAnimationState('talking')
         console.log('🔊 Converting text to speech...')
-        const audioBuffer = await openAIService.textToSpeech(response)
+        const audioBuffer = await openAIService.textToSpeech(response, aiConfig?.ttsVoice || 'alloy')
         
         setIsProcessing(false)
         
@@ -278,6 +279,8 @@ Réponds de manière naturelle et conversationnelle en français. Garde tes rép
   // Fonction principale pour gérer la conversation (style OpenAI)
   const handleConverseClick = useCallback(async () => {
     console.log('🎤 Conversation button clicked, current mode:', isConversationMode)
+    console.log('🎤 OpenAI service available:', !!openAIService)
+    console.log('🎤 User context available:', !!userContext)
     
     if (!openAIService) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')

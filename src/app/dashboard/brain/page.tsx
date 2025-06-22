@@ -109,6 +109,7 @@ export default function BrainDashboard() {
           llmModel: aiResult.data.llm_model,
           llmApiUrl: aiResult.data.llm_api_url,
           temperature: aiResult.data.temperature,
+          ttsVoice: aiResult.data.tts_voice || 'alloy',
           avatarUrl: aiResult.data.avatar_url,
           avatarPosition: aiResult.data.avatar_position
         })
@@ -164,6 +165,7 @@ export default function BrainDashboard() {
         llm_model: updates.llmModel ?? aiConfig.llmModel,
         llm_api_url: updates.llmApiUrl ?? aiConfig.llmApiUrl,
         temperature: updates.temperature ?? aiConfig.temperature,
+        tts_voice: updates.ttsVoice ?? aiConfig.ttsVoice ?? 'alloy',
         avatar_url: updates.avatarUrl ?? aiConfig.avatarUrl,
         avatar_position: updates.avatarPosition ?? aiConfig.avatarPosition
       }
@@ -560,6 +562,27 @@ export default function BrainDashboard() {
                       <span>Créatif</span>
                     </div>
                   </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Voix TTS
+                    </label>
+                    <select
+                      value={aiConfig?.ttsVoice || 'alloy'}
+                      onChange={(e) => setAIConfig(prev => prev ? {...prev, ttsVoice: e.target.value} : null)}
+                      className="w-full p-3 border border-gray-300 rounded-lg"
+                    >
+                      <option value="alloy">Alloy (Neutre)</option>
+                      <option value="echo">Echo (Masculine)</option>
+                      <option value="fable">Fable (Britannique)</option>
+                      <option value="onyx">Onyx (Profonde)</option>
+                      <option value="nova">Nova (Féminine)</option>
+                      <option value="shimmer">Shimmer (Douce)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Choisissez la voix pour la synthèse vocale OpenAI
+                    </p>
+                  </div>
                 </div>
               </div>
               
@@ -568,7 +591,8 @@ export default function BrainDashboard() {
                   llmApiKey: aiConfig?.llmApiKey,
                   llmApiUrl: aiConfig?.llmApiUrl,
                   llmModel: aiConfig?.llmModel,
-                  temperature: aiConfig?.temperature
+                  temperature: aiConfig?.temperature,
+                  ttsVoice: aiConfig?.ttsVoice
                 })}
                 className="mt-6 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
