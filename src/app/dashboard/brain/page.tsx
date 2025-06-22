@@ -104,13 +104,11 @@ export default function BrainDashboard() {
           temperature: 0.7
         }
         
-        const { data: newConfig } = await supabase
+        aiResult = await supabase
           .from('ai_config')
           .insert(defaultConfig)
           .select()
           .single()
-        
-        aiResult = { data: newConfig }
       }
 
       const [kbResult, rssResult, apiResult, pronResult] = await Promise.all([
