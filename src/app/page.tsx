@@ -120,8 +120,12 @@ function MainContent() {
   }
 
   const handleConverseClick = useCallback(async () => {
-    if (!openAIService || !userContext) {
-      console.error('OpenAI service or user context not available')
+    if (!openAIService) {
+      alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
+      return
+    }
+    if (!userContext) {
+      console.error('User context not available')
       return
     }
 

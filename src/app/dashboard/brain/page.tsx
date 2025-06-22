@@ -73,6 +73,7 @@ export default function BrainDashboard() {
       }
     } catch (error) {
       console.error('Error loading data:', error)
+      alert('❌ Erreur de connexion à la base de données. Vérifiez la configuration Supabase.')
     }
   }
 
