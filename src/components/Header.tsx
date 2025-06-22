@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 
 interface HeaderProps {
@@ -18,26 +18,19 @@ const Header: React.FC<HeaderProps> = ({
   onHelpClick,
   isRecording = false
 }) => {
+  const [logoError, setLogoError] = useState(false)
   return (
     <header className="flex items-center justify-between px-8 py-6 bg-white/80 backdrop-blur-md border-b border-gray-200">
       <div className="flex items-center">
-        {logoUrl ? (
+        {logoUrl && !logoError ? (
           <div className="relative h-10 w-32">
             <Image
               src={logoUrl}
               alt="Company Logo"
               fill
               className="object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const fallback = target.nextElementSibling as HTMLElement;
-                if (fallback) fallback.style.display = 'flex';
-              }}
+              onError={() => setLogoError(true)}
             />
-            <div className="h-10 w-32 bg-gray-200 rounded-md items-center justify-center hidden">
-              <span className="text-gray-500 text-sm">Logo</span>
-            </div>
           </div>
         ) : (
           <div className="h-10 w-32 bg-gray-200 rounded-md flex items-center justify-center">

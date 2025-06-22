@@ -1,28 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Force rebuild - timestamp: 2025-06-22 17:20
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '*.supabase.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
         hostname: 'wdgypadoxenvdrgvhrbs.supabase.co',
         port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: '**',
-        port: '',
-        pathname: '/**',
+        pathname: '/storage/v1/object/public/**',
       },
     ],
+    domains: ['wdgypadoxenvdrgvhrbs.supabase.co'],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
   },
   // Ensure fresh builds
   generateEtags: false,
