@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 
 interface InfoBoxProps {
@@ -18,7 +18,27 @@ const InfoBox: React.FC<InfoBoxProps> = ({
   mediaType,
   onClose
 }) => {
+  const [imageError, setImageError] = useState(false)
+  const [videoError, setVideoError] = useState(false)
+
   if (!isVisible) return null
+
+  // Auto-detect media type if not provided
+  const getMediaType = () => {
+    if (mediaType) return mediaType
+    if (!mediaUrl) return null
+    
+    const url = mediaUrl.toLowerCase()
+    if (url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('.gif') || url.includes('.webp')) {
+      return 'image'
+    }
+    if (url.includes('.mp4') || url.includes('.webm') || url.includes('.ogg')) {
+      return 'video'
+    }
+    return 'image' // Default to image
+  }
+
+  const detectedMediaType = getMediaType()
 
   return (
     <div className="fixed bottom-8 left-8 max-w-md z-50">
@@ -26,39 +46,34 @@ const InfoBox: React.FC<InfoBoxProps> = ({
         <div className="relative">
           {mediaUrl && (
             <div className="w-full h-48 bg-gray-100 relative">
-              {mediaType === 'image' ? (
-                <div className="relative w-full h-full">
-                  <Image
-                    src={mediaUrl}
-                    alt="Info content"
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const fallback = target.nextElementSibling as HTMLElement;
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gray-200 items-center justify-center hidden">
-                    <span className="text-gray-500 text-sm">Image non disponible</span>
-                  </div>
-                </div>
-              ) : mediaType === 'video' ? (
+              {detectedMediaType === 'image' && !imageError ? (
+                <Image
+                  src={mediaUrl}
+                  alt="Info content"
+                  fill
+                  className="object-cover"
+                  onError={() => setImageError(true)}
+                  priority
+                />
+              ) : detectedMediaType === 'video' && !videoError ? (
                 <video
                   src={mediaUrl}
                   controls
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLVideoElement;
-                    target.style.display = 'none';
-                    const fallback = target.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
+                  onError={() => setVideoError(true)}
                 >
                   Votre navigateur ne supporte pas la lecture vidéo.
                 </video>
-              ) : null}
+              ) : (
+                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-gray-400 text-3xl mb-2">🖼️</div>
+                    <span className="text-gray-500 text-sm">
+                      {imageError || videoError ? 'Média non disponible' : 'Chargement...'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
