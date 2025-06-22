@@ -15,13 +15,23 @@ const Footer: React.FC<FooterProps> = ({ logo1Url, logo2Url }) => {
         <span>Powered by</span>
         
         {logo1Url ? (
-          <Image
-            src={logo1Url}
-            alt="Partner Logo 1"
-            width={80}
-            height={24}
-            className="h-6 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
-          />
+          <div className="relative h-6 w-20">
+            <Image
+              src={logo1Url}
+              alt="Partner Logo 1"
+              fill
+              className="object-contain opacity-70 hover:opacity-100 transition-opacity"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+            <div className="h-6 w-20 bg-gray-200 rounded items-center justify-center hidden">
+              <span className="text-xs text-gray-400">Logo 1</span>
+            </div>
+          </div>
         ) : (
           <div className="h-6 w-20 bg-gray-200 rounded flex items-center justify-center">
             <span className="text-xs text-gray-400">Logo 1</span>
@@ -29,13 +39,23 @@ const Footer: React.FC<FooterProps> = ({ logo1Url, logo2Url }) => {
         )}
 
         {logo2Url ? (
-          <Image
-            src={logo2Url}
-            alt="Partner Logo 2"
-            width={80}
-            height={24}
-            className="h-6 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
-          />
+          <div className="relative h-6 w-20">
+            <Image
+              src={logo2Url}
+              alt="Partner Logo 2"
+              fill
+              className="object-contain opacity-70 hover:opacity-100 transition-opacity"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+            <div className="h-6 w-20 bg-gray-200 rounded items-center justify-center hidden">
+              <span className="text-xs text-gray-400">Logo 2</span>
+            </div>
+          </div>
         ) : (
           <div className="h-6 w-20 bg-gray-200 rounded flex items-center justify-center">
             <span className="text-xs text-gray-400">Logo 2</span>

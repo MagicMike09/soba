@@ -243,9 +243,8 @@ Réponds de manière naturelle et conversationnelle en français.`
       />
 
       <main className="flex-1 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/5"></div>
-        
-        <div className="relative w-full h-full">
+        {/* Canvas 3D en arrière-plan complet */}
+        <div className="absolute inset-0 w-full h-full">
           <Avatar3D
             avatarUrl={aiConfig?.avatarUrl}
             animationState={animationState}
@@ -254,7 +253,11 @@ Réponds de manière naturelle et conversationnelle en français.`
             rotation={aiConfig?.avatarPosition?.rotation || { x: 0, y: 0, z: 0 }}
           />
         </div>
+        
+        {/* Overlay gradient subtil */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/5 pointer-events-none"></div>
 
+        {/* InfoBox par-dessus */}
         <InfoBox
           isVisible={showInfoBox}
           content={brandConfig?.infoBoxContent}

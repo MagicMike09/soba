@@ -25,20 +25,36 @@ const InfoBox: React.FC<InfoBoxProps> = ({
       <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden neo-minimal">
         <div className="relative">
           {mediaUrl && (
-            <div className="w-full h-48 bg-gray-100">
+            <div className="w-full h-48 bg-gray-100 relative">
               {mediaType === 'image' ? (
-                <Image
-                  src={mediaUrl}
-                  alt="Info content"
-                  fill
-                  className="object-cover"
-                />
+                <div className="relative w-full h-full">
+                  <Image
+                    src={mediaUrl}
+                    alt="Info content"
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gray-200 items-center justify-center hidden">
+                    <span className="text-gray-500 text-sm">Image non disponible</span>
+                  </div>
+                </div>
               ) : mediaType === 'video' ? (
                 <video
                   src={mediaUrl}
                   controls
                   className="w-full h-full object-cover"
-                  poster="/api/placeholder/400/200"
+                  onError={(e) => {
+                    const target = e.target as HTMLVideoElement;
+                    target.style.display = 'none';
+                    const fallback = target.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
                 >
                   Votre navigateur ne supporte pas la lecture vidéo.
                 </video>

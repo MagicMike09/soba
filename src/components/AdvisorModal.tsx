@@ -73,15 +73,25 @@ const AdvisorModal: React.FC<AdvisorModalProps> = ({
                   onClick={() => handleSelectAdvisor(advisor)}
                 >
                   <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
+                    <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0 relative">
                       {advisor.photoUrl ? (
-                        <Image
-                          src={advisor.photoUrl}
-                          alt={`${advisor.firstName} ${advisor.lastName}`}
-                          width={64}
-                          height={64}
-                          className="w-full h-full object-cover"
-                        />
+                        <div className="relative w-full h-full">
+                          <Image
+                            src={advisor.photoUrl}
+                            alt={`${advisor.firstName} ${advisor.lastName}`}
+                            fill
+                            className="object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gray-200 items-center justify-center text-gray-400 text-xl hidden">
+                            👤
+                          </div>
+                        </div>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-xl">
                           👤
