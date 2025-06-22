@@ -120,22 +120,38 @@ function MainContent() {
   }
 
   const handleConverseClick = useCallback(async () => {
+    console.log('🎤 Conversation button clicked, isRecording:', isRecording)
+    
     if (!openAIService) {
+      console.error('❌ OpenAI service not available')
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
       return
     }
+    
     if (!userContext) {
-      console.error('User context not available')
+      console.error('❌ User context not available')
       return
     }
 
+    console.log('🤖 Agent config:', {
+      name: aiConfig?.agentName,
+      model: aiConfig?.llmModel,
+      hasApiKey: !!aiConfig?.llmApiKey
+    })
+
     if (isRecording) {
       try {
+        console.log('🛑 Stopping recording...')
         stopRecording()
         setAnimationState('thinking')
         
+        console.log('📝 Processing speech to text...')
         const audioBlob = await audioRecorder.stopRecording()
+        console.log('🎵 Audio blob size:', audioBlob.size, 'bytes')
+        
+        const startTime = Date.now()
         const transcript = await openAIService.speechToText(audioBlob)
+        console.log('📝 Transcript received in', Date.now() - startTime, 'ms:', transcript)
         
         if (transcript.trim()) {
           addMessage({ role: 'user', content: transcript })
@@ -146,6 +162,8 @@ ${aiConfig?.agentPersonality || 'Tu es professionnel et serviable.'}
 
 Réponds de manière naturelle et conversationnelle en français.`
 
+          console.log('🧠 Generating AI response...')
+          const aiStartTime = Date.now()
           const response = await openAIService.generateResponse(
             [...messages, { id: 'temp', role: 'user', content: transcript, timestamp: new Date() }],
             systemPrompt,
@@ -153,32 +171,49 @@ Réponds de manière naturelle et conversationnelle en français.`
             aiConfig?.llmModel || 'gpt-4',
             aiConfig?.temperature || 0.7
           )
+          console.log('🧠 AI response received in', Date.now() - aiStartTime, 'ms:', response.substring(0, 50) + '...')
           
           addMessage({ role: 'assistant', content: response })
           
           setAnimationState('talking')
+          console.log('🔊 Converting text to speech...')
+          const ttsStartTime = Date.now()
           const audioBuffer = await openAIService.textToSpeech(response)
+          console.log('🔊 TTS completed in', Date.now() - ttsStartTime, 'ms')
+          
+          console.log('🎵 Playing audio...')
           await audioPlayer.playAudio(audioBuffer)
+          setAnimationState('idle')
+          console.log('✅ Conversation completed successfully')
+        } else {
+          console.log('⚠️ Empty transcript received')
           setAnimationState('idle')
         }
       } catch (error) {
-        console.error('Error processing conversation:', error)
+        console.error('❌ Error processing conversation:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+        alert(`❌ Erreur: ${errorMessage}`)
         setAnimationState('idle')
       }
     } else {
       try {
+        console.log('🎤 Starting recording...')
         startRecording()
         setAnimationState('waiting')
         await audioRecorder.startRecording()
+        console.log('✅ Recording started successfully')
         
-        // Auto-stop after 3 seconds of silence (simplified implementation)
+        // Auto-stop after 10 seconds instead of 5 for better user experience
         setTimeout(async () => {
+          console.log('⏰ Auto-stop timeout reached')
           if (isRecording) {
             handleConverseClick()
           }
-        }, 5000) // 5 seconds timeout for demo
+        }, 10000) // 10 seconds timeout
       } catch (error) {
-        console.error('Error starting recording:', error)
+        console.error('❌ Error starting recording:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+        alert(`❌ Erreur microphone: ${errorMessage}`)
         setAnimationState('idle')
       }
     }

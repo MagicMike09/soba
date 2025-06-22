@@ -8,6 +8,8 @@ export class OpenAIService {
   }
 
   async textToSpeech(text: string, voice: string = 'alloy'): Promise<ArrayBuffer> {
+    console.log('🔊 TTS Request:', { textLength: text.length, voice, model: 'tts-1' })
+    
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -16,24 +18,31 @@ export class OpenAIService {
       },
       body: JSON.stringify({
         model: 'tts-1',
-        input: text,
+        input: text.substring(0, 4000), // Limit to 4000 chars to avoid API limits
         voice: voice,
         response_format: 'mp3'
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`TTS API error: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('❌ TTS API error:', response.status, response.statusText, errorText)
+      throw new Error(`TTS API error: ${response.status} ${response.statusText}`)
     }
 
-    return response.arrayBuffer()
+    const arrayBuffer = await response.arrayBuffer()
+    console.log('✅ TTS Response received, size:', arrayBuffer.byteLength, 'bytes')
+    return arrayBuffer
   }
 
   async speechToText(audioBlob: Blob): Promise<string> {
+    console.log('📝 STT Request:', { blobSize: audioBlob.size, blobType: audioBlob.type })
+    
     const formData = new FormData()
     formData.append('file', audioBlob, 'audio.webm')
     formData.append('model', 'whisper-1')
     formData.append('response_format', 'text')
+    formData.append('language', 'fr') // Force French for better recognition
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -44,10 +53,14 @@ export class OpenAIService {
     })
 
     if (!response.ok) {
-      throw new Error(`STT API error: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('❌ STT API error:', response.status, response.statusText, errorText)
+      throw new Error(`STT API error: ${response.status} ${response.statusText}`)
     }
 
-    return response.text()
+    const transcript = await response.text()
+    console.log('✅ STT Response:', transcript)
+    return transcript
   }
 
   async generateResponse(
@@ -70,6 +83,13 @@ export class OpenAIService {
       }))
     ]
 
+    console.log('🧠 Chat Request:', { 
+      model, 
+      temperature, 
+      messagesCount: chatMessages.length,
+      systemPromptLength: systemPrompt.length
+    })
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -85,11 +105,19 @@ export class OpenAIService {
     })
 
     if (!response.ok) {
-      throw new Error(`Chat API error: ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('❌ Chat API error:', response.status, response.statusText, errorText)
+      throw new Error(`Chat API error: ${response.status} ${response.statusText}`)
     }
 
     const data = await response.json()
-    return data.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
+    const responseContent = data.choices[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse.'
+    console.log('✅ Chat Response:', { 
+      responseLength: responseContent.length,
+      usage: data.usage 
+    })
+    
+    return responseContent
   }
 
   private formatUserContext(context: UserContext): string {
