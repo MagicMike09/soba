@@ -89,27 +89,8 @@ export default function BrainDashboard() {
 
   const loadData = async () => {
     try {
-      // Load AI config - create default if none exists
-      let aiResult = await supabase.from('ai_config').select('*').maybeSingle()
-      
-      if (!aiResult.data) {
-        // Create default AI config if none exists
-        const defaultConfig = {
-          agent_name: 'Assistant Virtuel',
-          agent_mission: 'Je suis votre assistant virtuel pour vous aider avec vos questions.',
-          agent_personality: 'Je suis professionnel, serviable et à l\'écoute.',
-          llm_api_key: '',
-          llm_model: 'gpt-4',
-          llm_api_url: 'https://api.openai.com/v1',
-          temperature: 0.7
-        }
-        
-        aiResult = await supabase
-          .from('ai_config')
-          .insert(defaultConfig)
-          .select()
-          .single()
-      }
+      // Load AI config
+      const aiResult = await supabase.from('ai_config').select('*').single()
 
       const [kbResult, rssResult, apiResult, pronResult] = await Promise.all([
         supabase.from('knowledge_base').select('*'),
@@ -168,45 +149,37 @@ export default function BrainDashboard() {
   }
 
   const updateAIConfig = async (updates: Partial<AIConfig>) => {
-    try {
-      if (!aiConfig) {
-        // Create new AI config if none exists
-        const defaultConfig = {
-          agent_name: updates.agentName || 'Assistant Virtuel',
-          agent_mission: updates.agentMission || 'Je suis votre assistant virtuel pour vous aider avec vos questions.',
-          agent_personality: updates.agentPersonality || 'Je suis professionnel, serviable et à l\'écoute.',
-          llm_api_key: updates.llmApiKey || '',
-          llm_model: updates.llmModel || 'gpt-4',
-          llm_api_url: updates.llmApiUrl || 'https://api.openai.com/v1',
-          temperature: updates.temperature ?? 0.7,
-          avatar_url: updates.avatarUrl || null,
-          avatar_position: updates.avatarPosition || null
-        }
-        
-        await supabase.from('ai_config').insert(defaultConfig)
-      } else {
-        // Update existing config
-        const updateData = {
-          agent_name: updates.agentName ?? aiConfig.agentName,
-          agent_mission: updates.agentMission ?? aiConfig.agentMission,
-          agent_personality: updates.agentPersonality ?? aiConfig.agentPersonality,
-          llm_api_key: updates.llmApiKey ?? aiConfig.llmApiKey,
-          llm_model: updates.llmModel ?? aiConfig.llmModel,
-          llm_api_url: updates.llmApiUrl ?? aiConfig.llmApiUrl,
-          temperature: updates.temperature ?? aiConfig.temperature,
-          avatar_url: updates.avatarUrl ?? aiConfig.avatarUrl,
-          avatar_position: updates.avatarPosition ?? aiConfig.avatarPosition
-        }
+    if (!aiConfig) {
+      alert('❌ Configuration non chargée. Veuillez recharger la page.')
+      return
+    }
 
-        await supabase.from('ai_config').update(updateData).eq('id', aiConfig.id)
+    try {
+      // Update existing config
+      const updateData = {
+        agent_name: updates.agentName ?? aiConfig.agentName,
+        agent_mission: updates.agentMission ?? aiConfig.agentMission,
+        agent_personality: updates.agentPersonality ?? aiConfig.agentPersonality,
+        llm_api_key: updates.llmApiKey ?? aiConfig.llmApiKey,
+        llm_model: updates.llmModel ?? aiConfig.llmModel,
+        llm_api_url: updates.llmApiUrl ?? aiConfig.llmApiUrl,
+        temperature: updates.temperature ?? aiConfig.temperature,
+        avatar_url: updates.avatarUrl ?? aiConfig.avatarUrl,
+        avatar_position: updates.avatarPosition ?? aiConfig.avatarPosition
       }
+
+      console.log('🔄 Sauvegarde des données:', updateData)
+      
+      const { error } = await supabase.from('ai_config').update(updateData).eq('id', aiConfig.id)
+      if (error) throw error
       
       // Reload data to refresh the interface
       await loadData()
       alert('✅ Configuration sauvegardée avec succès !')
     } catch (error) {
       console.error('Error updating AI config:', error)
-      alert('❌ Erreur lors de la sauvegarde. Vérifiez votre connexion.')
+      const errorMessage = error instanceof Error ? error.message : 'Vérifiez votre connexion.'
+      alert(`❌ Erreur lors de la sauvegarde: ${errorMessage}`)
     }
   }
 
