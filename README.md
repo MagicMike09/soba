@@ -2,6 +2,8 @@
 
 Une application web interactive en Next.js mettant en scène un agent d'accueil virtuel piloté par IA, avec deux tableaux de bord pour la gestion du branding et de l'intelligence artificielle.
 
+🎉 **Application déployée** : https://soba.vercel.app
+
 ## 🎯 Fonctionnalités Principales
 
 ### Page Principale
