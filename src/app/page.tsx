@@ -112,6 +112,9 @@ function MainContent() {
           llmApiUrl: aiResult.data.llm_api_url,
           temperature: aiResult.data.temperature,
           ttsVoice: aiResult.data.tts_voice || 'alloy',
+          ttsSpeed: aiResult.data.tts_speed || 1.0,
+          sttLanguage: aiResult.data.stt_language || 'fr',
+          sttModel: aiResult.data.stt_model || 'whisper-1',
           avatarUrl: aiResult.data.avatar_url,
           avatarPosition: aiResult.data.avatar_position
         })
@@ -197,7 +200,7 @@ function MainContent() {
       
       // STT - Speech to Text
       console.log('📝 Converting speech to text...')
-      const transcript = await openAIService.speechToText(audioBlob)
+      const transcript = await openAIService.speechToText(audioBlob, aiConfig?.sttLanguage || 'fr')
       console.log('✅ User said:', transcript)
       
       if (transcript.trim()) {
@@ -226,7 +229,11 @@ Réponds de manière naturelle et conversationnelle en français. Garde tes rép
         // TTS - Text to Speech et lecture
         setAnimationState('talking')
         console.log('🔊 Converting text to speech...')
-        const audioBuffer = await openAIService.textToSpeech(response, aiConfig?.ttsVoice || 'alloy')
+        const audioBuffer = await openAIService.textToSpeech(
+          response, 
+          aiConfig?.ttsVoice || 'alloy',
+          aiConfig?.ttsSpeed || 1.0
+        )
         
         setIsProcessing(false)
         

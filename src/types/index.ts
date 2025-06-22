@@ -20,6 +20,9 @@ export interface AIConfig {
   llmApiUrl: string
   temperature: number
   ttsVoice?: string
+  ttsSpeed?: number
+  sttLanguage?: string
+  sttModel?: string
   avatarUrl?: string
   avatarPosition?: {
     x: number

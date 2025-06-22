@@ -110,6 +110,9 @@ export default function BrainDashboard() {
           llmApiUrl: aiResult.data.llm_api_url,
           temperature: aiResult.data.temperature,
           ttsVoice: aiResult.data.tts_voice || 'alloy',
+          ttsSpeed: aiResult.data.tts_speed || 1.0,
+          sttLanguage: aiResult.data.stt_language || 'fr',
+          sttModel: aiResult.data.stt_model || 'whisper-1',
           avatarUrl: aiResult.data.avatar_url,
           avatarPosition: aiResult.data.avatar_position
         })
@@ -166,6 +169,9 @@ export default function BrainDashboard() {
         llm_api_url: updates.llmApiUrl ?? aiConfig.llmApiUrl,
         temperature: updates.temperature ?? aiConfig.temperature,
         tts_voice: updates.ttsVoice ?? aiConfig.ttsVoice ?? 'alloy',
+        tts_speed: updates.ttsSpeed ?? aiConfig.ttsSpeed ?? 1.0,
+        stt_language: updates.sttLanguage ?? aiConfig.sttLanguage ?? 'fr',
+        stt_model: updates.sttModel ?? aiConfig.sttModel ?? 'whisper-1',
         avatar_url: updates.avatarUrl ?? aiConfig.avatarUrl,
         avatar_position: updates.avatarPosition ?? aiConfig.avatarPosition
       }
@@ -492,112 +498,281 @@ export default function BrainDashboard() {
 
           {/* LLM Configuration */}
           {activeTab === 'llm' && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <h2 className="text-xl font-semibold mb-4">Configuration du Modèle LLM</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Clé API
-                    </label>
-                    <input
-                      type="password"
-                      value={aiConfig?.llmApiKey || ''}
-                      onChange={(e) => setAIConfig(prev => prev ? {...prev, llmApiKey: e.target.value} : null)}
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      placeholder="sk-..."
-                    />
+            <div className="space-y-6">
+              {/* LLM Model Card */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      URL de l'API
-                    </label>
-                    <input
-                      type="url"
-                      value={aiConfig?.llmApiUrl || ''}
-                      onChange={(e) => setAIConfig(prev => prev ? {...prev, llmApiUrl: e.target.value} : null)}
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      placeholder="https://api.openai.com/v1"
-                    />
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Modèle LLM</h3>
                 </div>
                 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Modèle
-                    </label>
-                    <select
-                      value={aiConfig?.llmModel || ''}
-                      onChange={(e) => setAIConfig(prev => prev ? {...prev, llmModel: e.target.value} : null)}
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                    >
-                      <option value="">Sélectionner un modèle</option>
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                      <option value="claude-3-opus">Claude 3 Opus</option>
-                      <option value="claude-3-sonnet">Claude 3 Sonnet</option>
-                      <option value="gemini-pro">Gemini Pro</option>
-                      <option value="mistral-large">Mistral Large</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Température: {aiConfig?.temperature || 0.7}
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.1"
-                      value={aiConfig?.temperature || 0.7}
-                      onChange={(e) => setAIConfig(prev => prev ? {...prev, temperature: parseFloat(e.target.value)} : null)}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>Précis</span>
-                      <span>Créatif</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Clé API OpenAI
+                      </label>
+                      <input
+                        type="password"
+                        value={aiConfig?.llmApiKey || ''}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, llmApiKey: e.target.value} : null)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="sk-proj-..."
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        URL de l'API
+                      </label>
+                      <input
+                        type="url"
+                        value={aiConfig?.llmApiUrl || ''}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, llmApiUrl: e.target.value} : null)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="https://api.openai.com/v1"
+                      />
                     </div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Voix TTS
-                    </label>
-                    <select
-                      value={aiConfig?.ttsVoice || 'alloy'}
-                      onChange={(e) => setAIConfig(prev => prev ? {...prev, ttsVoice: e.target.value} : null)}
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                    >
-                      <option value="alloy">Alloy (Neutre)</option>
-                      <option value="echo">Echo (Masculine)</option>
-                      <option value="fable">Fable (Britannique)</option>
-                      <option value="onyx">Onyx (Profonde)</option>
-                      <option value="nova">Nova (Féminine)</option>
-                      <option value="shimmer">Shimmer (Douce)</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Choisissez la voix pour la synthèse vocale OpenAI
-                    </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Modèle IA
+                      </label>
+                      <select
+                        value={aiConfig?.llmModel || ''}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, llmModel: e.target.value} : null)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Sélectionner un modèle</option>
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="claude-3-opus">Claude 3 Opus</option>
+                        <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+                        <option value="gemini-pro">Gemini Pro</option>
+                        <option value="mistral-large">Mistral Large</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Température: {aiConfig?.temperature || 0.7}
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={aiConfig?.temperature || 0.7}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, temperature: parseFloat(e.target.value)} : null)}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Précis</span>
+                        <span>Créatif</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+                
+                <button
+                  onClick={() => updateAIConfig({
+                    llmApiKey: aiConfig?.llmApiKey,
+                    llmApiUrl: aiConfig?.llmApiUrl,
+                    llmModel: aiConfig?.llmModel,
+                    temperature: aiConfig?.temperature
+                  })}
+                  className="mt-6 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Sauvegarder Modèle LLM
+                </button>
               </div>
-              
-              <button
-                onClick={() => updateAIConfig({
-                  llmApiKey: aiConfig?.llmApiKey,
-                  llmApiUrl: aiConfig?.llmApiUrl,
-                  llmModel: aiConfig?.llmModel,
-                  temperature: aiConfig?.temperature,
-                  ttsVoice: aiConfig?.ttsVoice
-                })}
-                className="mt-6 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Sauvegarder Configuration LLM
-              </button>
+
+              {/* TTS Configuration Card */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Configuration TTS (Synthèse Vocale)</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Voix OpenAI
+                      </label>
+                      <select
+                        value={aiConfig?.ttsVoice || 'alloy'}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, ttsVoice: e.target.value} : null)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      >
+                        <option value="alloy">🎭 Alloy (Neutre)</option>
+                        <option value="echo">🚹 Echo (Masculine)</option>
+                        <option value="fable">🇬🇧 Fable (Britannique)</option>
+                        <option value="onyx">🎤 Onyx (Profonde)</option>
+                        <option value="nova">🚺 Nova (Féminine)</option>
+                        <option value="shimmer">✨ Shimmer (Douce)</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Sélectionnez la voix pour la synthèse vocale
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Vitesse: {aiConfig?.ttsSpeed || 1.0}x
+                      </label>
+                      <input
+                        type="range"
+                        min="0.25"
+                        max="4.0"
+                        step="0.25"
+                        value={aiConfig?.ttsSpeed || 1.0}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, ttsSpeed: parseFloat(e.target.value)} : null)}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Lent</span>
+                        <span>Normal</span>
+                        <span>Rapide</span>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm text-gray-600 mb-2">🎵 Aperçu</p>
+                      <p className="text-xs text-gray-500">"Bonjour, je suis votre assistant virtuel."</p>
+                      <button className="mt-2 text-xs bg-green-100 text-green-700 px-3 py-1 rounded-md hover:bg-green-200 transition-colors">
+                        🔊 Tester la voix
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => updateAIConfig({
+                    ttsVoice: aiConfig?.ttsVoice,
+                    ttsSpeed: aiConfig?.ttsSpeed
+                  })}
+                  className="mt-6 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Sauvegarder Configuration TTS
+                </button>
+              </div>
+
+              {/* STT Configuration Card */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Configuration STT (Reconnaissance Vocale)</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Modèle Whisper
+                      </label>
+                      <select
+                        value={aiConfig?.sttModel || 'whisper-1'}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, sttModel: e.target.value} : null)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        <option value="whisper-1">Whisper-1 (Standard)</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Modèle de reconnaissance vocale OpenAI
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Langue principale
+                      </label>
+                      <select
+                        value={aiConfig?.sttLanguage || 'fr'}
+                        onChange={(e) => setAIConfig(prev => prev ? {...prev, sttLanguage: e.target.value} : null)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      >
+                        <option value="fr">🇫🇷 Français</option>
+                        <option value="en">🇺🇸 Anglais</option>
+                        <option value="es">🇪🇸 Espagnol</option>
+                        <option value="de">🇩🇪 Allemand</option>
+                        <option value="it">🇮🇹 Italien</option>
+                        <option value="pt">🇵🇹 Portugais</option>
+                        <option value="auto">🌐 Détection automatique</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">🎚️ Paramètres Audio</h4>
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex justify-between">
+                          <span>Suppression du bruit:</span>
+                          <span className="text-green-600 font-medium">✓ Activée</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Annulation d'écho:</span>
+                          <span className="text-green-600 font-medium">✓ Activée</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Détection de silence:</span>
+                          <span className="text-green-600 font-medium">✓ 3 secondes</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Qualité audio:</span>
+                          <span className="text-green-600 font-medium">✓ 16kHz</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-sm text-blue-700 mb-2">💡 Conseils</p>
+                      <ul className="text-xs text-blue-600 space-y-1">
+                        <li>• Parlez clairement près du microphone</li>
+                        <li>• Évitez les bruits de fond</li>
+                        <li>• Attendez 3 secondes de silence pour valider</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => updateAIConfig({
+                    sttModel: aiConfig?.sttModel,
+                    sttLanguage: aiConfig?.sttLanguage
+                  })}
+                  className="mt-6 bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Sauvegarder Configuration STT
+                </button>
+              </div>
             </div>
           )}
 

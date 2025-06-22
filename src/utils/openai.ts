@@ -7,7 +7,7 @@ export class OpenAIService {
     this.apiKey = apiKey
   }
 
-  async textToSpeech(text: string, voice: string = 'alloy'): Promise<ArrayBuffer> {
+  async textToSpeech(text: string, voice: string = 'alloy', speed: number = 1.0): Promise<ArrayBuffer> {
     console.log('🔊 TTS Request:', { textLength: text.length, voice, model: 'tts-1' })
     
     // Nettoyer et limiter le texte
@@ -27,7 +27,7 @@ export class OpenAIService {
         input: cleanText,
         voice: voice,
         response_format: 'mp3',
-        speed: 1.0
+        speed: speed
       }),
     })
 
@@ -54,7 +54,7 @@ export class OpenAIService {
     return arrayBuffer
   }
 
-  async speechToText(audioBlob: Blob): Promise<string> {
+  async speechToText(audioBlob: Blob, language: string = 'fr'): Promise<string> {
     console.log('📝 STT Request:', { blobSize: audioBlob.size, blobType: audioBlob.type })
     
     if (audioBlob.size < 1000) {
@@ -70,7 +70,7 @@ export class OpenAIService {
     formData.append('file', audioBlob, fileName)
     formData.append('model', 'whisper-1')
     formData.append('response_format', 'text')
-    formData.append('language', 'fr') // Force French for better recognition
+    formData.append('language', language === 'auto' ? '' : language) // Language setting
     formData.append('temperature', '0') // Plus précis
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
