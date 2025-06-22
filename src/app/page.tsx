@@ -136,9 +136,38 @@ function MainContent() {
       clearTimeout(recordingTimeout)
       setRecordingTimeout(null)
     }
-  }, [audioPlayer, recordingTimeout])
+    // Arrêter l'enregistrement si actif
+    if (isRecording) {
+      audioRecorder.stopRecording().catch(console.error)
+    }
+  }, [audioPlayer, recordingTimeout, isRecording, audioRecorder])
 
-  // Fonction pour traiter l'enregistrement (définie en premier)
+  // Fonction pour démarrer l'enregistrement en continu avec détection de silence
+  const startContinuousRecording = useCallback(async () => {
+    if (isRecording) return
+    
+    try {
+      console.log('🎤 Starting continuous recording with silence detection...')
+      startRecording()
+      setAnimationState('waiting')
+      setCurrentTranscript('')
+      
+      // Démarrer l'enregistrement avec détection de silence automatique
+      await audioRecorder.startRecording(async () => {
+        console.log('🔇 Silence detected - processing recording...')
+        await processRecording()
+      })
+      
+    } catch (error) {
+      console.error('❌ Error starting recording:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      alert(`❌ Erreur microphone: ${errorMessage}`)
+      setAnimationState('idle')
+      setIsConversationMode(false)
+    }
+  }, [isRecording, audioRecorder, startRecording, setIsConversationMode])
+
+  // Fonction pour traiter l'enregistrement 
   const processRecording = useCallback(async () => {
     if (!openAIService || !userContext) return
     
@@ -220,34 +249,7 @@ Réponds de manière naturelle et conversationnelle en français. Sois concis et
         setIsConversationMode(false)
       }
     }
-  }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, recordingTimeout, isConversationMode])
-
-  // Fonction pour démarrer l'enregistrement en continu
-  const startContinuousRecording = useCallback(async () => {
-    if (isRecording) return
-    
-    try {
-      console.log('🎤 Starting continuous recording...')
-      startRecording()
-      setAnimationState('waiting')
-      setCurrentTranscript('')
-      await audioRecorder.startRecording()
-      
-      // Enregistrement continu avec détection de silence
-      const timeout = setTimeout(async () => {
-        if (isRecording) {
-          await processRecording()
-        }
-      }, 3000) // 3 secondes d'enregistrement
-      
-      setRecordingTimeout(timeout)
-    } catch (error) {
-      console.error('❌ Error starting recording:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
-      alert(`❌ Erreur microphone: ${errorMessage}`)
-      setAnimationState('idle')
-    }
-  }, [isRecording, audioRecorder, startRecording, processRecording])
+  }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, recordingTimeout, isConversationMode, startContinuousRecording])
 
   // Nouvelle fonction pour gérer le bouton converser
   const handleConverseClick = useCallback(async () => {

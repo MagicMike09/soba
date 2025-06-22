@@ -137,20 +137,87 @@ export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null
   private chunks: Blob[] = []
   private stream: MediaStream | null = null
+  private silenceDetection: boolean = false
+  private silenceTimeout: NodeJS.Timeout | null = null
+  private audioContext: AudioContext | null = null
+  private analyser: AnalyserNode | null = null
 
-  async startRecording(): Promise<void> {
+  async startRecording(onSilenceDetected?: () => void): Promise<void> {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      this.mediaRecorder = new MediaRecorder(this.stream)
+      console.log('🎤 Starting recording with silence detection...')
+      this.stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      })
+      
+      // Setup silence detection
+      if (onSilenceDetected) {
+        this.setupSilenceDetection(onSilenceDetected)
+      }
+      
+      this.mediaRecorder = new MediaRecorder(this.stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      })
       this.chunks = []
 
       this.mediaRecorder.ondataavailable = (event) => {
-        this.chunks.push(event.data)
+        if (event.data.size > 0) {
+          this.chunks.push(event.data)
+        }
       }
 
-      this.mediaRecorder.start()
+      this.mediaRecorder.start(100) // Collect data every 100ms for real-time processing
+      console.log('✅ Recording started successfully')
     } catch (error) {
+      console.error('❌ Error starting recording:', error)
       throw new Error(`Failed to start recording: ${error}`)
+    }
+  }
+
+  private setupSilenceDetection(onSilenceDetected: () => void): void {
+    try {
+      this.audioContext = new AudioContext()
+      const source = this.audioContext.createMediaStreamSource(this.stream!)
+      this.analyser = this.audioContext.createAnalyser()
+      
+      this.analyser.fftSize = 256
+      source.connect(this.analyser)
+      
+      const bufferLength = this.analyser.frequencyBinCount
+      const dataArray = new Uint8Array(bufferLength)
+      
+      const checkSilence = () => {
+        if (!this.analyser || !this.silenceDetection) return
+        
+        this.analyser.getByteFrequencyData(dataArray)
+        const average = dataArray.reduce((a, b) => a + b) / bufferLength
+        
+        if (average < 10) { // Threshold for silence
+          if (!this.silenceTimeout) {
+            this.silenceTimeout = setTimeout(() => {
+              console.log('🔇 Silence detected - stopping recording')
+              onSilenceDetected()
+            }, 3000) // 3 seconds of silence
+          }
+        } else {
+          if (this.silenceTimeout) {
+            clearTimeout(this.silenceTimeout)
+            this.silenceTimeout = null
+          }
+        }
+        
+        if (this.silenceDetection) {
+          requestAnimationFrame(checkSilence)
+        }
+      }
+      
+      this.silenceDetection = true
+      checkSilence()
+    } catch (error) {
+      console.warn('⚠️ Silence detection setup failed:', error)
     }
   }
 
@@ -161,8 +228,17 @@ export class AudioRecorder {
         return
       }
 
+      console.log('🛑 Stopping recording...')
+      this.silenceDetection = false
+      
+      if (this.silenceTimeout) {
+        clearTimeout(this.silenceTimeout)
+        this.silenceTimeout = null
+      }
+
       this.mediaRecorder.onstop = () => {
         const blob = new Blob(this.chunks, { type: 'audio/webm' })
+        console.log('📦 Audio blob created:', blob.size, 'bytes')
         this.cleanup()
         resolve(blob)
       }
@@ -172,11 +248,26 @@ export class AudioRecorder {
   }
 
   private cleanup(): void {
+    console.log('🧹 Cleaning up recording resources...')
+    this.silenceDetection = false
+    
+    if (this.silenceTimeout) {
+      clearTimeout(this.silenceTimeout)
+      this.silenceTimeout = null
+    }
+    
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop())
       this.stream = null
     }
+    
+    if (this.audioContext) {
+      this.audioContext.close()
+      this.audioContext = null
+    }
+    
     this.mediaRecorder = null
+    this.analyser = null
     this.chunks = []
   }
 }
