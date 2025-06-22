@@ -4,6 +4,8 @@ Une application web interactive en Next.js mettant en scène un agent d'accueil 
 
 🎉 **Application déployée** : https://soba.vercel.app
 
+🔧 **Dernière mise à jour** : Dashboard Brain entièrement fonctionnel
+
 ## 🎯 Fonctionnalités Principales
 
 ### Page Principale
