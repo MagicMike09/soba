@@ -21,7 +21,7 @@ export default function DebugPage() {
       const { data, error } = await supabase.from('advisors').select('count', { count: 'exact' })
       if (error) throw error
       setStatus(prev => ({ ...prev, supabase: '✅ Connected', tables: `✅ ${data?.length || 0} advisors` }))
-    } catch (error) {
+    } catch {
       setStatus(prev => ({ ...prev, supabase: '❌ Failed', tables: '❌ Error' }))
     }
 
@@ -40,7 +40,7 @@ export default function DebugPage() {
         ...prev, 
         storage: hasUploads ? '✅ Bucket exists' : '❌ No uploads bucket'
       }))
-    } catch (error) {
+    } catch {
       setStatus(prev => ({ ...prev, storage: '❌ Storage error' }))
     }
   }
