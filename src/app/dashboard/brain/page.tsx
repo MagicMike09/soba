@@ -4,6 +4,74 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { AIConfig, KnowledgeBase, RSSFeed, APITool, Pronunciation } from '@/types'
 
+interface FileUploadProps {
+  onUpload: (url: string) => void
+  accept?: string
+  label: string
+  currentUrl?: string
+}
+
+const FileUpload: React.FC<FileUploadProps> = ({ onUpload, accept, label, currentUrl }) => {
+  const [uploading, setUploading] = useState(false)
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}.${fileExt}`
+      const { error } = await supabase.storage
+        .from('uploads')
+        .upload(fileName, file)
+
+      if (error) throw error
+
+      const { data: urlData } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(fileName)
+
+      onUpload(urlData.publicUrl)
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      alert('Erreur lors du téléchargement')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <div className="flex items-center space-x-4">
+        <input
+          type="file"
+          accept={accept}
+          onChange={handleUpload}
+          disabled={uploading}
+          className="hidden"
+          id={`upload-${label.replace(/\s/g, '-')}`}
+        />
+        <label
+          htmlFor={`upload-${label.replace(/\s/g, '-')}`}
+          className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+        >
+          {uploading ? 'Téléchargement...' : 'Choisir fichier'}
+        </label>
+        {currentUrl && (
+          <span className="text-sm text-green-600">✅ Fichier chargé</span>
+        )}
+      </div>
+      {currentUrl && (
+        <div className="text-xs text-gray-500 break-all">
+          {currentUrl}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BrainDashboard() {
   const [aiConfig, setAIConfig] = useState<AIConfig | null>(null)
   const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase[]>([])
@@ -13,6 +81,7 @@ export default function BrainDashboard() {
   
   const [activeTab, setActiveTab] = useState('agent')
   const [showModal, setShowModal] = useState<string | null>(null)
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string>('')
 
   useEffect(() => {
     loadData()
@@ -20,8 +89,31 @@ export default function BrainDashboard() {
 
   const loadData = async () => {
     try {
-      const [aiResult, kbResult, rssResult, apiResult, pronResult] = await Promise.all([
-        supabase.from('ai_config').select('*').single(),
+      // Load AI config - create default if none exists
+      let aiResult = await supabase.from('ai_config').select('*').maybeSingle()
+      
+      if (!aiResult.data) {
+        // Create default AI config if none exists
+        const defaultConfig = {
+          agent_name: 'Assistant Virtuel',
+          agent_mission: 'Je suis votre assistant virtuel pour vous aider avec vos questions.',
+          agent_personality: 'Je suis professionnel, serviable et à l\'écoute.',
+          llm_api_key: '',
+          llm_model: 'gpt-4',
+          llm_api_url: 'https://api.openai.com/v1',
+          temperature: 0.7
+        }
+        
+        const { data: newConfig } = await supabase
+          .from('ai_config')
+          .insert(defaultConfig)
+          .select()
+          .single()
+        
+        aiResult = { data: newConfig }
+      }
+
+      const [kbResult, rssResult, apiResult, pronResult] = await Promise.all([
         supabase.from('knowledge_base').select('*'),
         supabase.from('rss_feeds').select('*'),
         supabase.from('api_tools').select('*'),
@@ -111,6 +203,7 @@ export default function BrainDashboard() {
       })
       loadData()
       setShowModal(null)
+      setUploadedFileUrl('')
     } catch (error) {
       console.error('Error adding knowledge item:', error)
       alert('Erreur lors de l\'ajout')
@@ -279,17 +372,29 @@ export default function BrainDashboard() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
               <h2 className="text-xl font-semibold mb-4">Configuration Avatar 3D</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    URL de l'avatar (Sketchfab ou GLB/GLTF)
-                  </label>
-                  <input
-                    type="url"
-                    value={aiConfig?.avatarUrl || ''}
-                    onChange={(e) => setAIConfig(prev => prev ? {...prev, avatarUrl: e.target.value} : null)}
-                    className="w-full p-3 border border-gray-300 rounded-lg"
-                    placeholder="https://sketchfab.com/models/... ou file.glb"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      URL de l'avatar (Sketchfab)
+                    </label>
+                    <input
+                      type="url"
+                      value={aiConfig?.avatarUrl || ''}
+                      onChange={(e) => setAIConfig(prev => prev ? {...prev, avatarUrl: e.target.value} : null)}
+                      className="w-full p-3 border border-gray-300 rounded-lg"
+                      placeholder="https://sketchfab.com/models/..."
+                    />
+                  </div>
+                  
+                  <div className="border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-3">OU uploader votre modèle 3D :</p>
+                    <FileUpload
+                      label="Modèle 3D (GLB/GLTF)"
+                      accept=".glb,.gltf"
+                      currentUrl={aiConfig?.avatarUrl?.includes('supabase') ? aiConfig.avatarUrl : undefined}
+                      onUpload={(url) => setAIConfig(prev => prev ? {...prev, avatarUrl: url} : null)}
+                    />
+                  </div>
                 </div>
                 
                 <div className="space-y-4">
@@ -649,7 +754,7 @@ export default function BrainDashboard() {
                     title: formData.get('title') as string,
                     content: formData.get('content') as string,
                     fileType: formData.get('fileType') as 'pdf' | 'csv' | 'txt' | 'json',
-                    fileUrl: formData.get('fileUrl') as string || undefined
+                    fileUrl: uploadedFileUrl || undefined
                   })
                 } else if (showModal === 'rss') {
                   addRSSFeed({
@@ -683,8 +788,27 @@ export default function BrainDashboard() {
                         <option value="txt">TXT</option>
                         <option value="json">JSON</option>
                       </select>
-                      <input name="fileUrl" placeholder="URL du fichier (optionnel)" className="w-full p-3 border border-gray-300 rounded-lg" />
-                      <textarea name="content" placeholder="Contenu du document" required rows={4} className="w-full p-3 border border-gray-300 rounded-lg resize-none" />
+                      
+                      <div className="space-y-3">
+                        <FileUpload
+                          label="Uploader un document (PDF, CSV, TXT, JSON)"
+                          accept=".pdf,.csv,.txt,.json"
+                          currentUrl={uploadedFileUrl}
+                          onUpload={(url) => setUploadedFileUrl(url)}
+                        />
+                        
+                        <div className="text-center text-gray-500">OU</div>
+                        
+                        <input 
+                          name="fileUrl" 
+                          placeholder="URL du fichier (optionnel)" 
+                          value={uploadedFileUrl}
+                          onChange={(e) => setUploadedFileUrl(e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg" 
+                        />
+                      </div>
+                      
+                      <textarea name="content" placeholder="Contenu du document ou résumé" required rows={4} className="w-full p-3 border border-gray-300 rounded-lg resize-none" />
                     </>
                   )}
                   
