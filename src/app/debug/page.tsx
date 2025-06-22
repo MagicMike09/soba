@@ -78,7 +78,7 @@ export default function DebugPage() {
             <div className="space-y-2 text-sm">
               {status.openai.includes('❌') && (
                 <div className="p-3 bg-red-50 text-red-800 rounded">
-                  Ajoutez votre clé OpenAI dans Vercel Settings > Environment Variables
+                  Ajoutez votre clé OpenAI dans Vercel Settings &gt; Environment Variables
                 </div>
               )}
               {status.storage.includes('❌') && (
