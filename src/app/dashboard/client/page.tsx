@@ -96,7 +96,8 @@ export default function ClientDashboard() {
           phone: advisor.phone,
           email: advisor.email,
           photoUrl: advisor.photo_url,
-          position: advisor.position
+          position: advisor.position,
+          isAvailable: advisor.is_available ?? true
         })))
       }
 
@@ -131,7 +132,8 @@ export default function ClientDashboard() {
         phone: advisor.phone!,
         email: advisor.email!,
         photo_url: advisor.photoUrl,
-        position: advisor.position!
+        position: advisor.position!,
+        is_available: advisor.isAvailable ?? true
       }
 
       if (advisor.id) {
@@ -320,7 +322,16 @@ export default function ClientDashboard() {
                     </div>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{advisor.email}</p>
-                  <p className="text-sm text-gray-600 mb-3">{advisor.phone}</p>
+                  <p className="text-sm text-gray-600 mb-2">{advisor.phone}</p>
+                  <div className="mb-3">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      advisor.isAvailable 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {advisor.isAvailable ? '🟢 Disponible' : '🔴 Occupé'}
+                    </span>
+                  </div>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => {
@@ -362,7 +373,8 @@ export default function ClientDashboard() {
                   phone: formData.get('phone') as string,
                   email: formData.get('email') as string,
                   position: formData.get('position') as string,
-                  photoUrl: editingAdvisor?.photoUrl
+                  photoUrl: editingAdvisor?.photoUrl,
+                  isAvailable: formData.get('isAvailable') === 'on'
                 })
               }}>
                 <div className="space-y-4">
@@ -410,6 +422,16 @@ export default function ClientDashboard() {
                     className="w-full p-3 border border-gray-300 rounded-lg"
                   />
                   
+                  <div className="flex items-center space-x-2">
+                    <input
+                      name="isAvailable"
+                      type="checkbox"
+                      defaultChecked={editingAdvisor?.isAvailable ?? true}
+                      className="w-5 h-5"
+                    />
+                    <label className="font-medium">Conseiller disponible</label>
+                  </div>
+                  
                   {editingAdvisor && (
                     <FileUpload
                       label="Photo"
@@ -417,6 +439,12 @@ export default function ClientDashboard() {
                       currentUrl={editingAdvisor.photoUrl}
                       onUpload={(url) => setEditingAdvisor({...editingAdvisor, photoUrl: url})}
                     />
+                  )}
+                  
+                  {!editingAdvisor && (
+                    <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                      💡 La photo pourra être ajoutée après la création du conseiller
+                    </div>
                   )}
                 </div>
                 

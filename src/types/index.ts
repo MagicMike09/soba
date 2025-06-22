@@ -7,6 +7,7 @@ export interface Advisor {
   email: string
   photoUrl?: string
   position: string
+  isAvailable: boolean
 }
 
 export interface AIConfig {
