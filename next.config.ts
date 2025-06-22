@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Force rebuild - timestamp: 2025-06-22 17:20
   images: {
     remotePatterns: [
       {
@@ -23,6 +24,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Ensure fresh builds
+  generateEtags: false,
 };
 
 export default nextConfig;
