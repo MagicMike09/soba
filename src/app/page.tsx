@@ -7,6 +7,7 @@ import Footer from '@/components/Footer'
 import InfoBox from '@/components/InfoBox'
 import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
+import ChatBox from '@/components/ChatBox'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
 import { getUserContext } from '@/utils/userContext'
 import { OpenAIService, AudioRecorder, AudioPlayer } from '@/utils/openai'
@@ -34,7 +35,13 @@ function MainContent() {
   const [showAdvisorModal, setShowAdvisorModal] = useState(false)
   const [showHelpModal, setShowHelpModal] = useState(false)
   const [showInfoBox, setShowInfoBox] = useState(false)
+  const [showChatBox, setShowChatBox] = useState(false)
   const [animationState, setAnimationState] = useState<AnimationState>('idle')
+  
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [currentTranscript, setCurrentTranscript] = useState('')
+  const [isConversationMode, setIsConversationMode] = useState(false)
+  const [recordingTimeout, setRecordingTimeout] = useState<NodeJS.Timeout | null>(null)
   
   const [audioRecorder] = useState(() => new AudioRecorder())
   const [audioPlayer] = useState(() => new AudioPlayer())
@@ -119,11 +126,134 @@ function MainContent() {
     }
   }
 
+  // Fonction pour interrompre l'IA
+  const stopAI = useCallback(() => {
+    console.log('⛔ Interrupting AI...')
+    audioPlayer.stop()
+    setAnimationState('idle')
+    setIsProcessing(false)
+    if (recordingTimeout) {
+      clearTimeout(recordingTimeout)
+      setRecordingTimeout(null)
+    }
+  }, [audioPlayer, recordingTimeout])
+
+  // Fonction pour traiter l'enregistrement (définie en premier)
+  const processRecording = useCallback(async () => {
+    if (!openAIService || !userContext) return
+    
+    try {
+      console.log('🛑 Processing recording...')
+      stopRecording()
+      setIsProcessing(true)
+      setAnimationState('thinking')
+      
+      if (recordingTimeout) {
+        clearTimeout(recordingTimeout)
+        setRecordingTimeout(null)
+      }
+      
+      const audioBlob = await audioRecorder.stopRecording()
+      console.log('🎵 Audio blob size:', audioBlob.size, 'bytes')
+      
+      const startTime = Date.now()
+      const transcript = await openAIService.speechToText(audioBlob)
+      console.log('📝 Transcript received in', Date.now() - startTime, 'ms:', transcript)
+      
+      if (transcript.trim()) {
+        addMessage({ role: 'user', content: transcript })
+        
+        const systemPrompt = `Tu es ${aiConfig?.agentName || 'un assistant virtuel'}.
+${aiConfig?.agentMission || 'Tu aides les utilisateurs avec leurs questions.'}
+${aiConfig?.agentPersonality || 'Tu es professionnel et serviable.'}
+
+Réponds de manière naturelle et conversationnelle en français. Sois concis et direct dans tes réponses.`
+
+        console.log('🧠 Generating AI response...')
+        const aiStartTime = Date.now()
+        const response = await openAIService.generateResponse(
+          [...messages, { id: 'temp', role: 'user', content: transcript, timestamp: new Date() }],
+          systemPrompt,
+          userContext,
+          aiConfig?.llmModel || 'gpt-4',
+          aiConfig?.temperature || 0.7
+        )
+        console.log('🧠 AI response received in', Date.now() - aiStartTime, 'ms:', response.substring(0, 50) + '...')
+        
+        addMessage({ role: 'assistant', content: response })
+        setIsProcessing(false)
+        
+        // Jouer la réponse audio et redémarrer l'enregistrement automatiquement
+        setAnimationState('talking')
+        const ttsStartTime = Date.now()
+        const audioBuffer = await openAIService.textToSpeech(response)
+        console.log('🔊 TTS completed in', Date.now() - ttsStartTime, 'ms')
+        
+        // Jouer l'audio de manière interruptible
+        await audioPlayer.playAudio(audioBuffer)
+        
+        // Si on est toujours en mode conversation, redémarrer l'enregistrement
+        if (isConversationMode) {
+          setAnimationState('waiting')
+          setTimeout(() => {
+            startContinuousRecording()
+          }, 500) // Petite pause avant de relancer
+        } else {
+          setAnimationState('idle')
+        }
+      } else {
+        console.log('⚠️ Empty transcript, restarting recording...')
+        setIsProcessing(false)
+        if (isConversationMode) {
+          startContinuousRecording()
+        } else {
+          setAnimationState('idle')
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error processing conversation:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      setIsProcessing(false)
+      setAnimationState('idle')
+      if (isConversationMode) {
+        alert(`❌ Erreur: ${errorMessage}`)
+        setIsConversationMode(false)
+      }
+    }
+  }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, recordingTimeout, isConversationMode])
+
+  // Fonction pour démarrer l'enregistrement en continu
+  const startContinuousRecording = useCallback(async () => {
+    if (isRecording) return
+    
+    try {
+      console.log('🎤 Starting continuous recording...')
+      startRecording()
+      setAnimationState('waiting')
+      setCurrentTranscript('')
+      await audioRecorder.startRecording()
+      
+      // Enregistrement continu avec détection de silence
+      const timeout = setTimeout(async () => {
+        if (isRecording) {
+          await processRecording()
+        }
+      }, 3000) // 3 secondes d'enregistrement
+      
+      setRecordingTimeout(timeout)
+    } catch (error) {
+      console.error('❌ Error starting recording:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      alert(`❌ Erreur microphone: ${errorMessage}`)
+      setAnimationState('idle')
+    }
+  }, [isRecording, audioRecorder, startRecording, processRecording])
+
+  // Nouvelle fonction pour gérer le bouton converser
   const handleConverseClick = useCallback(async () => {
-    console.log('🎤 Conversation button clicked, isRecording:', isRecording)
+    console.log('🎤 Conversation button clicked')
     
     if (!openAIService) {
-      console.error('❌ OpenAI service not available')
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
       return
     }
@@ -133,91 +263,29 @@ function MainContent() {
       return
     }
 
-    console.log('🤖 Agent config:', {
-      name: aiConfig?.agentName,
-      model: aiConfig?.llmModel,
-      hasApiKey: !!aiConfig?.llmApiKey
-    })
+    // Afficher la chatbox
+    setShowChatBox(true)
 
-    if (isRecording) {
-      try {
-        console.log('🛑 Stopping recording...')
+    if (isConversationMode) {
+      // Arrêter le mode conversation
+      console.log('🛑 Stopping conversation mode...')
+      setIsConversationMode(false)
+      stopAI()
+      if (isRecording) {
         stopRecording()
-        setAnimationState('thinking')
-        
-        console.log('📝 Processing speech to text...')
-        const audioBlob = await audioRecorder.stopRecording()
-        console.log('🎵 Audio blob size:', audioBlob.size, 'bytes')
-        
-        const startTime = Date.now()
-        const transcript = await openAIService.speechToText(audioBlob)
-        console.log('📝 Transcript received in', Date.now() - startTime, 'ms:', transcript)
-        
-        if (transcript.trim()) {
-          addMessage({ role: 'user', content: transcript })
-          
-          const systemPrompt = `Tu es ${aiConfig?.agentName || 'un assistant virtuel'}.
-${aiConfig?.agentMission || 'Tu aides les utilisateurs avec leurs questions.'}
-${aiConfig?.agentPersonality || 'Tu es professionnel et serviable.'}
-
-Réponds de manière naturelle et conversationnelle en français.`
-
-          console.log('🧠 Generating AI response...')
-          const aiStartTime = Date.now()
-          const response = await openAIService.generateResponse(
-            [...messages, { id: 'temp', role: 'user', content: transcript, timestamp: new Date() }],
-            systemPrompt,
-            userContext,
-            aiConfig?.llmModel || 'gpt-4',
-            aiConfig?.temperature || 0.7
-          )
-          console.log('🧠 AI response received in', Date.now() - aiStartTime, 'ms:', response.substring(0, 50) + '...')
-          
-          addMessage({ role: 'assistant', content: response })
-          
-          setAnimationState('talking')
-          console.log('🔊 Converting text to speech...')
-          const ttsStartTime = Date.now()
-          const audioBuffer = await openAIService.textToSpeech(response)
-          console.log('🔊 TTS completed in', Date.now() - ttsStartTime, 'ms')
-          
-          console.log('🎵 Playing audio...')
-          await audioPlayer.playAudio(audioBuffer)
-          setAnimationState('idle')
-          console.log('✅ Conversation completed successfully')
-        } else {
-          console.log('⚠️ Empty transcript received')
-          setAnimationState('idle')
+        if (recordingTimeout) {
+          clearTimeout(recordingTimeout)
+          setRecordingTimeout(null)
         }
-      } catch (error) {
-        console.error('❌ Error processing conversation:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
-        alert(`❌ Erreur: ${errorMessage}`)
-        setAnimationState('idle')
       }
+      setAnimationState('idle')
     } else {
-      try {
-        console.log('🎤 Starting recording...')
-        startRecording()
-        setAnimationState('waiting')
-        await audioRecorder.startRecording()
-        console.log('✅ Recording started successfully')
-        
-        // Auto-stop after 10 seconds instead of 5 for better user experience
-        setTimeout(async () => {
-          console.log('⏰ Auto-stop timeout reached')
-          if (isRecording) {
-            handleConverseClick()
-          }
-        }, 10000) // 10 seconds timeout
-      } catch (error) {
-        console.error('❌ Error starting recording:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
-        alert(`❌ Erreur microphone: ${errorMessage}`)
-        setAnimationState('idle')
-      }
+      // Démarrer le mode conversation continu
+      console.log('🔄 Starting continuous conversation mode...')
+      setIsConversationMode(true)
+      await startContinuousRecording()
     }
-  }, [isRecording, openAIService, userContext, audioRecorder, audioPlayer, messages, addMessage, startRecording, stopRecording, aiConfig])
+  }, [openAIService, userContext, isConversationMode, stopAI, isRecording, stopRecording, recordingTimeout, startContinuousRecording])
 
   const handleCallClick = () => {
     setShowAdvisorModal(true)
@@ -275,6 +343,8 @@ Réponds de manière naturelle et conversationnelle en français.`
         onCallClick={handleCallClick}
         onHelpClick={handleHelpClick}
         isRecording={isRecording}
+        isConversationMode={isConversationMode}
+        onStopAI={stopAI}
       />
 
       <main className="flex-1 relative overflow-hidden">
@@ -317,6 +387,15 @@ Réponds de manière naturelle et conversationnelle en français.`
         isOpen={showHelpModal}
         helpText={brandConfig?.helpText}
         onClose={() => setShowHelpModal(false)}
+      />
+
+      <ChatBox
+        messages={messages}
+        isRecording={isRecording}
+        isProcessing={isProcessing}
+        currentTranscript={currentTranscript}
+        onToggle={() => setShowChatBox(!showChatBox)}
+        isVisible={showChatBox}
       />
     </div>
   )

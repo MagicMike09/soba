@@ -9,6 +9,8 @@ interface HeaderProps {
   onCallClick: () => void
   onHelpClick: () => void
   isRecording?: boolean
+  isConversationMode?: boolean
+  onStopAI?: () => void
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -16,7 +18,9 @@ const Header: React.FC<HeaderProps> = ({
   onConverseClick,
   onCallClick,
   onHelpClick,
-  isRecording = false
+  isRecording = false,
+  isConversationMode = false,
+  onStopAI
 }) => {
   const [logoError, setLogoError] = useState(false)
   return (
@@ -43,12 +47,19 @@ const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onConverseClick}
           className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-            isRecording
-              ? 'bg-red-500 text-white animate-pulse'
+            isConversationMode
+              ? 'bg-red-500 text-white'
+              : isRecording
+              ? 'bg-orange-500 text-white animate-pulse'
               : 'bg-black text-white hover:bg-gray-800 hover:transform hover:scale-105'
           }`}
         >
-          {isRecording ? (
+          {isConversationMode ? (
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <span>Arrêter conversation</span>
+            </div>
+          ) : isRecording ? (
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
               <span>Écoute...</span>
@@ -57,6 +68,17 @@ const Header: React.FC<HeaderProps> = ({
             'Converser'
           )}
         </button>
+
+        {/* Bouton pour interrompre l'IA quand elle parle */}
+        {isConversationMode && onStopAI && (
+          <button
+            onClick={onStopAI}
+            className="px-4 py-3 rounded-lg font-medium bg-yellow-500 text-white hover:bg-yellow-600 transition-all duration-200"
+            title="Interrompre l'IA"
+          >
+            ⏹️ Stop
+          </button>
+        )}
 
         <button
           onClick={onCallClick}
