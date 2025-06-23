@@ -114,6 +114,115 @@ export class AudioAPI {
   }
 
   /**
+   * LLM Chat Completion avec gestion du contexte
+   */
+  async generateResponse(
+    messages: Array<{role: 'user' | 'assistant', content: string}>, 
+    systemPrompt: string,
+    userContext?: unknown,
+    model: string = 'gpt-4',
+    temperature: number = 0.7
+  ): Promise<string> {
+    try {
+      console.log('🧠 AudioAPI: LLM request for', messages.length, 'messages')
+      
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          messages, 
+          systemPrompt,
+          userContext,
+          model,
+          temperature,
+          apiKey: this.apiKey 
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Erreur lors de la génération de réponse')
+      }
+
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Génération de réponse échouée')
+      }
+
+      console.log('✅ AudioAPI: LLM completed, response:', result.response.substring(0, 100) + '...')
+      
+      return result.response
+      
+    } catch (error) {
+      console.error('❌ AudioAPI LLM Error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Flux de conversation complet: STT → LLM → TTS
+   */
+  async completeConversationFlow(
+    audioBlob: Blob,
+    conversationHistory: Array<{role: 'user' | 'assistant', content: string}>,
+    config: {
+      sttLanguage?: string
+      systemPrompt?: string
+      userContext?: unknown
+      llmModel?: string
+      temperature?: number
+      ttsVoice?: string
+      ttsSpeed?: number
+    } = {}
+  ): Promise<{
+    transcript: string
+    response: string
+    audioBuffer: ArrayBuffer
+  }> {
+    try {
+      console.log('🔄 AudioAPI: Starting complete conversation flow...')
+      
+      // 1. STT - Speech to Text
+      console.log('📝 AudioAPI: Step 1 - STT conversion...')
+      const transcript = await this.speechToText(audioBlob, config.sttLanguage || 'fr')
+      
+      if (!transcript.trim()) {
+        throw new Error('Aucune parole détectée dans l\'audio')
+      }
+      
+      // 2. LLM - Generate response
+      console.log('🧠 AudioAPI: Step 2 - LLM generation...')
+      const newMessages = [...conversationHistory, { role: 'user' as const, content: transcript }]
+      const response = await this.generateResponse(
+        newMessages,
+        config.systemPrompt || 'Tu es un assistant virtuel français. Réponds de manière naturelle et conversationnelle.',
+        config.userContext,
+        config.llmModel || 'gpt-4',
+        config.temperature || 0.7
+      )
+      
+      // 3. TTS - Text to Speech
+      console.log('🔊 AudioAPI: Step 3 - TTS generation...')
+      const audioBuffer = await this.textToSpeech(response, config.ttsVoice || 'alloy')
+      
+      console.log('✅ AudioAPI: Complete conversation flow finished')
+      
+      return {
+        transcript,
+        response,
+        audioBuffer
+      }
+      
+    } catch (error) {
+      console.error('❌ AudioAPI Complete Flow Error:', error)
+      throw error
+    }
+  }
+
+  /**
    * Gestion des erreurs API avec messages utilisateur
    */
   static handleAPIError(error: unknown): string {

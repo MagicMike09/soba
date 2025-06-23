@@ -9,6 +9,7 @@ import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
 import ChatBox from '@/components/ChatBox'
 import ConversationTest from '@/components/ConversationTest'
+import FullConversation from '@/components/FullConversation'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
 import { getUserContext } from '@/utils/userContext'
 import { AudioAPI } from '@/utils/audioAPI'
@@ -43,6 +44,7 @@ function MainContent() {
   // New Audio API instances
   const [audioAPI, setAudioAPI] = useState<AudioAPI | null>(null)
   const [showConversationTest, setShowConversationTest] = useState(false)
+  const [showFullConversation, setShowFullConversation] = useState(false)
 
   // Load data
   useEffect(() => {
@@ -126,9 +128,9 @@ function MainContent() {
     }
   }
 
-  // NEW: Simplified conversation handler with backend TTS/STT
+  // COMPLETE: Full conversation handler with STT → LLM → TTS flow
   const handleConverseClick = useCallback(async () => {
-    console.log('🔄 NEW: Conversation button clicked - Backend TTS/STT implementation')
+    console.log('🔄 COMPLETE: Conversation button clicked - Full STT→LLM→TTS flow')
     
     if (!audioAPI) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
@@ -137,44 +139,59 @@ function MainContent() {
 
     if (isConversationMode) {
       // STOP mode conversation
-      console.log('🛑 NEW: Stopping conversation mode...')
+      console.log('🛑 COMPLETE: Stopping conversation mode...')
       setIsConversationMode(false)
       setShowChatBox(false)
       setShowConversationTest(false)
+      setShowFullConversation(false)
       setAnimationState('idle')
       
       addMessage({ 
         role: 'system', 
-        content: '🔄 Conversation terminée - Backend TTS/STT' 
+        content: '🔄 Conversation terminée - Flux complet STT→LLM→TTS' 
       })
     } else {
       // START mode conversation
-      console.log('🚀 NEW: Starting conversation mode...')
+      console.log('🚀 COMPLETE: Starting conversation mode...')
       setIsConversationMode(true)
       setShowChatBox(true)
-      setShowConversationTest(true)
+      setShowFullConversation(true)
       setAnimationState('idle')
       
       addMessage({ 
         role: 'system', 
-        content: '🔄 Mode conversation activé - Backend TTS/STT prêt' 
+        content: '🔄 Conversation fluide activée - STT→LLM→TTS en continu' 
       })
     }
   }, [audioAPI, isConversationMode, addMessage])
 
-  // Handle transcript from ConversationTest component
+  // Handle transcript from FullConversation component
   const handleTranscript = (transcript: string) => {
-    console.log('📝 NEW: Received transcript:', transcript)
+    console.log('📝 COMPLETE: Received transcript:', transcript)
     addMessage({ role: 'user', content: transcript })
     
-    // Generate AI response here if needed
-    // For now, just acknowledge the transcript
+    // Update animation state
+    setAnimationState('thinking')
   }
 
-  // Handle response from ConversationTest component
+  // Handle response from FullConversation component
   const handleResponse = (response: string) => {
-    console.log('🤖 NEW: Generated response:', response)
+    console.log('🤖 COMPLETE: Generated response:', response)
     addMessage({ role: 'assistant', content: response })
+    
+    // Update animation state
+    setAnimationState('talking')
+  }
+
+  // Handle errors from FullConversation component
+  const handleConversationError = (error: string) => {
+    console.error('❌ COMPLETE: Conversation error:', error)
+    setAnimationState('idle')
+    
+    addMessage({ 
+      role: 'system', 
+      content: `❌ Erreur: ${error}` 
+    })
   }
 
   const handleCallClick = () => setShowAdvisorModal(true)
@@ -269,9 +286,32 @@ function MainContent() {
         isVisible={showChatBox}
       />
 
-      {/* Conversation Test Component */}
-      {showConversationTest && audioAPI && (
+      {/* Full Conversation Component */}
+      {showFullConversation && audioAPI && aiConfig && (
         <div className="fixed bottom-20 right-4 z-50">
+          <FullConversation
+            apiKey={aiConfig.llmApiKey}
+            config={{
+              agentName: aiConfig.agentName,
+              agentMission: aiConfig.agentMission,
+              agentPersonality: aiConfig.agentPersonality,
+              llmModel: aiConfig.llmModel,
+              temperature: aiConfig.temperature,
+              sttLanguage: aiConfig.sttLanguage,
+              ttsVoice: aiConfig.ttsVoice,
+              ttsSpeed: aiConfig.ttsSpeed
+            }}
+            userContext={userContext}
+            onTranscript={handleTranscript}
+            onResponse={handleResponse}
+            onError={handleConversationError}
+          />
+        </div>
+      )}
+
+      {/* Conversation Test Component (Debug Mode) */}
+      {showConversationTest && audioAPI && (
+        <div className="fixed bottom-20 left-4 z-50">
           <ConversationTest
             apiKey={aiConfig?.llmApiKey || ''}
             onTranscript={handleTranscript}
