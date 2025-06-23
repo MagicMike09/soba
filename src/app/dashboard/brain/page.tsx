@@ -152,7 +152,7 @@ export default function BrainDashboard() {
     }
   }
 
-  // Fonction de test de connectivité
+  // Fonction de test de connectivité et colonnes
   const testDatabaseConnection = async () => {
     try {
       console.log('🔍 Test de connectivité à la base de données...')
@@ -169,6 +169,34 @@ export default function BrainDashboard() {
     } catch (error) {
       console.error('❌ Erreur de test:', error)
       alert('❌ Impossible de se connecter à la base de données')
+      return false
+    }
+  }
+
+  // Fonction pour tester la présence des colonnes TTS/STT
+  const testTTSSTTColumns = async () => {
+    try {
+      console.log('🔍 Test des colonnes TTS/STT...')
+      const { error } = await supabase.from('ai_config').select('id, tts_voice, tts_speed, stt_language, stt_model').limit(1)
+      
+      if (error) {
+        console.error('❌ Colonnes manquantes:', error)
+        const missingColumns = []
+        if (error.message.includes('tts_voice')) missingColumns.push('tts_voice')
+        if (error.message.includes('tts_speed')) missingColumns.push('tts_speed')
+        if (error.message.includes('stt_language')) missingColumns.push('stt_language')
+        if (error.message.includes('stt_model')) missingColumns.push('stt_model')
+        
+        alert(`❌ Colonnes TTS/STT manquantes: ${missingColumns.join(', ')}\n\n🔧 Exécutez cette commande dans Supabase SQL Editor:\n\nALTER TABLE ai_config ADD COLUMN IF NOT EXISTS tts_voice VARCHAR(20) DEFAULT 'alloy', ADD COLUMN IF NOT EXISTS tts_speed DECIMAL(3,2) DEFAULT 1.0, ADD COLUMN IF NOT EXISTS stt_language VARCHAR(10) DEFAULT 'fr', ADD COLUMN IF NOT EXISTS stt_model VARCHAR(20) DEFAULT 'whisper-1';`)
+        return false
+      }
+      
+      console.log('✅ Toutes les colonnes TTS/STT sont présentes')
+      alert('✅ Toutes les colonnes TTS/STT sont présentes dans la base de données!')
+      return true
+    } catch (error) {
+      console.error('❌ Erreur de test des colonnes:', error)
+      alert('❌ Erreur lors du test des colonnes')
       return false
     }
   }
@@ -219,9 +247,26 @@ export default function BrainDashboard() {
 
       console.log('🔄 Données finales à sauvegarder:', updateData)
       
+      // Tentative 1: Essayer avec toutes les colonnes
       const { error } = await supabase.from('ai_config').update(updateData).eq('id', aiConfig.id)
       
-      if (error) {
+      // Tentative 2: Si erreur de colonne, essayer sans les nouvelles colonnes TTS/STT
+      if (error && (error.code === '42703' || error.message.includes('does not exist'))) {
+        console.log('⚠️ Colonnes TTS/STT manquantes, tentative sans ces colonnes...')
+        
+        // Sauvegarder seulement les colonnes de base
+        const { error: fallbackError } = await supabase.from('ai_config').update(baseUpdateData).eq('id', aiConfig.id)
+        
+        if (fallbackError) {
+          console.error('❌ Erreur même en mode fallback:', fallbackError)
+          throw fallbackError
+        } else {
+          console.log('✅ Sauvegarde réussie en mode fallback (sans TTS/STT)')
+          alert(`✅ Configuration de base sauvegardée!\n\n⚠️ Les paramètres TTS/STT n'ont pas pu être sauvegardés car les colonnes n'existent pas.\n\n🔧 Pour activer TTS/STT, exécutez le script SQL de migration.`)
+          setAIConfig(prev => prev ? { ...prev, ...updates } : null)
+          return
+        }
+      } else if (error) {
         console.error('❌ Erreur Supabase détaillée:', error)
         throw error
       }
@@ -234,16 +279,30 @@ export default function BrainDashboard() {
       
     } catch (error) {
       console.error('❌ Erreur complète lors de la sauvegarde:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      console.error('❌ Type d\'erreur:', typeof error)
+      console.error('❌ Erreur JSON:', JSON.stringify(error, null, 2))
       
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      const errorCode = (error as { code?: string })?.code || 'UNKNOWN'
+      const errorDetails = (error as { details?: string })?.details || ''
+      
+      console.error('❌ Message:', errorMessage)
+      console.error('❌ Code:', errorCode) 
+      console.error('❌ Détails:', errorDetails)
+      
+      // Cas spécifiques pour TTS/STT
       if (errorMessage.includes('column') && errorMessage.includes('does not exist')) {
-        alert(`❌ Erreur de base de données: Une colonne n'existe pas encore. Veuillez exécuter le script SQL de migration:\n\nsupabase-tts-stt-update.sql\n\nDétails: ${errorMessage}`)
+        const missingColumn = errorMessage.match(/column "([^"]+)"/)?.[1] || 'inconnue'
+        alert(`❌ Colonne manquante: "${missingColumn}"\n\n🔧 Solution:\n1. Allez dans Supabase → SQL Editor\n2. Exécutez: ALTER TABLE ai_config ADD COLUMN ${missingColumn} VARCHAR(20) DEFAULT 'alloy';\n3. Rechargez cette page\n\nOu exécutez le script complet: supabase-tts-stt-update.sql`)
+      } else if (errorCode === '42703' || errorMessage.includes('does not exist')) {
+        alert(`❌ Erreur de base de données: Colonnes TTS/STT manquantes\n\n🔧 Exécutez ce script SQL dans Supabase:\n\nALTER TABLE ai_config ADD COLUMN tts_voice VARCHAR(20) DEFAULT 'alloy';\nALTER TABLE ai_config ADD COLUMN tts_speed DECIMAL(3,2) DEFAULT 1.0;\nALTER TABLE ai_config ADD COLUMN stt_language VARCHAR(10) DEFAULT 'fr';\nALTER TABLE ai_config ADD COLUMN stt_model VARCHAR(20) DEFAULT 'whisper-1';`)
       } else if (errorMessage.includes('authentication') || errorMessage.includes('JWT')) {
         alert('❌ Erreur d\'authentification. Veuillez recharger la page.')
       } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
         alert('❌ Erreur de connexion réseau. Vérifiez votre connexion internet.')
       } else {
-        alert(`❌ Erreur lors de la sauvegarde: ${errorMessage}`)
+        // Erreur détaillée pour le diagnostic
+        alert(`❌ Erreur lors de la sauvegarde:\n\nMessage: ${errorMessage}\nCode: ${errorCode}\nDétails: ${errorDetails}\n\nVeuillez copier cette erreur et la partager pour diagnostic.`)
       }
     }
   }
@@ -556,6 +615,26 @@ export default function BrainDashboard() {
           {/* LLM Configuration */}
           {activeTab === 'llm' && (
             <div className="space-y-6">
+              {/* Diagnostic Panel */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-medium text-yellow-800">Diagnostic TTS/STT</span>
+                  </div>
+                  <button
+                    onClick={testTTSSTTColumns}
+                    className="text-xs bg-yellow-100 text-yellow-700 px-3 py-1 rounded-md hover:bg-yellow-200 transition-colors"
+                  >
+                    🔍 Tester les colonnes
+                  </button>
+                </div>
+                <p className="text-xs text-yellow-700 mt-2">
+                  Si vous rencontrez des erreurs de sauvegarde TTS/STT, cliquez sur "Tester les colonnes" pour diagnostiquer le problème.
+                </p>
+              </div>
               {/* LLM Model Card */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
                 <div className="flex items-center mb-4">
