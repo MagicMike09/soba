@@ -357,32 +357,12 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
     processRecordingRef.current = processRecording
   }, [startListening, processRecording])
 
-  // Fonction principale pour gérer la conversation (style OpenAI)
+  // Version simplifiée pour tester STT + Chat + LLM
   const handleConverseClick = useCallback(async () => {
-    // Protection contre les double-clics
-    if (isConverseButtonDisabled) {
-      console.log('🚫 Button click ignored - already processing')
-      return
-    }
-
-    console.log('🎤 Conversation button clicked, current mode:', isConversationMode)
-    console.log('🎤 Call stack:', new Error().stack?.split('\n')[1])
-    console.log('🎤 OpenAI service available:', !!openAIService)
-    console.log('🎤 User context available:', !!userContext)
-    console.log('🎤 Is recording:', isRecording)
-    console.log('🎤 Is processing:', isProcessing)
-    
-    // Désactiver temporairement le bouton pendant l'enregistrement
-    setIsConverseButtonDisabled(true)
-    setTimeout(() => setIsConverseButtonDisabled(false), 5000) // 5 secondes pour éviter les clics pendant l'enregistrement
+    console.log('🎤 Simple conversation clicked, mode:', isConversationMode)
     
     if (!openAIService) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
-      return
-    }
-    
-    if (!userContext) {
-      console.error('❌ User context not available')
       return
     }
 
@@ -390,33 +370,113 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
       // STOP - Arrêter la conversation
       console.log('🛑 Stopping conversation...')
       setIsConversationMode(false)
-      stopAI()
+      if (isRecording) {
+        audioRecorder.stopRecording().catch(console.error)
+      }
       setAnimationState('idle')
-      
-      // Masquer la chatbox après un délai
-      setTimeout(() => {
-        setShowChatBox(false)
-      }, 2000)
+      setTimeout(() => setShowChatBox(false), 2000)
     } else {
-      // START - Démarrer la conversation fluide
-      console.log('🚀 Starting conversation...')
+      // START - Démarrer une session simple
+      console.log('🚀 Starting simple conversation...')
       setIsConversationMode(true)
       setShowChatBox(true)
       
-      // Message de bienvenue et démarrage
       addMessage({ 
         role: 'assistant', 
-        content: 'Bonjour ! Je vous écoute, vous pouvez commencer à parler.' 
+        content: 'Bonjour ! Parlez maintenant, j\'attendrai 3 secondes de silence pour traiter votre message.' 
       })
       
-      // Démarrer l'écoute après un court délai
-      setTimeout(() => {
-        if (startListeningRef.current) {
-          startListeningRef.current()
-        }
-      }, 1000)
+      // Démarrer l'enregistrement immédiatement
+      await startSimpleRecording()
     }
-  }, [openAIService, userContext, isConversationMode, stopAI, addMessage, isConverseButtonDisabled, isRecording, isProcessing])
+  }, [openAIService, isConversationMode, isRecording, addMessage, startSimpleRecording])
+
+  // Fonction simplifiée d'enregistrement
+  const startSimpleRecording = useCallback(async () => {
+    try {
+      console.log('🎤 Starting simple recording...')
+      startRecording()
+      setAnimationState('listening')
+      
+      await audioRecorder.startRecording(async () => {
+        console.log('🔇 Silence detected - processing simple recording...')
+        await processSimpleRecording()
+      })
+      
+    } catch (error) {
+      console.error('❌ Error in simple recording:', error)
+      alert('❌ Erreur microphone. Autorisez l\'accès au microphone.')
+      setIsConversationMode(false)
+    }
+  }, [startRecording, processSimpleRecording])
+
+  // Fonction simplifiée de traitement
+  const processSimpleRecording = useCallback(async () => {
+    try {
+      console.log('🔄 Processing simple recording...')
+      stopRecording()
+      setIsProcessing(true)
+      setAnimationState('thinking')
+      
+      const audioBlob = await audioRecorder.stopRecording()
+      console.log('🎵 Audio blob size:', audioBlob.size, 'bytes')
+      
+      if (audioBlob.size < 1000) {
+        console.log('⚠️ Audio too short, restarting...')
+        setIsProcessing(false)
+        if (isConversationMode) {
+          await startSimpleRecording()
+        }
+        return
+      }
+      
+      // STT - Speech to Text
+      console.log('📝 Converting speech to text...')
+      const transcript = await openAIService!.speechToText(audioBlob, aiConfig?.sttLanguage || 'fr')
+      console.log('✅ Transcript:', transcript)
+      
+      if (transcript.trim()) {
+        // Ajouter le message utilisateur au chat
+        addMessage({ role: 'user', content: transcript })
+        
+        // Préparer le prompt système
+        const systemPrompt = `Tu es ${aiConfig?.agentName || 'un assistant virtuel'}.
+${aiConfig?.agentMission || 'Tu aides les utilisateurs avec leurs questions.'}
+${aiConfig?.agentPersonality || 'Tu es professionnel et serviable.'}
+
+Réponds de manière naturelle et conversationnelle en français. Garde tes réponses courtes et claires.`
+        
+        // Générer la réponse IA
+        console.log('🧠 Generating AI response...')
+        const response = await openAIService!.generateResponse(
+          [...messages, { id: 'temp', role: 'user', content: transcript, timestamp: new Date() }],
+          systemPrompt,
+          userContext!,
+          aiConfig?.llmModel || 'gpt-4',
+          aiConfig?.temperature || 0.7
+        )
+        
+        console.log('✅ AI response:', response)
+        addMessage({ role: 'assistant', content: response })
+      }
+      
+      setIsProcessing(false)
+      setAnimationState('idle')
+      
+      // Redémarrer l'écoute si toujours en mode conversation
+      if (isConversationMode) {
+        setTimeout(async () => {
+          await startSimpleRecording()
+        }, 1000)
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in simple processing:', error)
+      setIsProcessing(false)
+      setAnimationState('idle')
+      alert('❌ Erreur lors du traitement. Vérifiez votre clé API OpenAI.')
+    }
+  }, [stopRecording, audioRecorder, openAIService, aiConfig, addMessage, messages, userContext, isConversationMode, startSimpleRecording])
 
   const handleCallClick = () => {
     setShowAdvisorModal(true)
