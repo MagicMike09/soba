@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -163,34 +163,7 @@ function MainContent() {
         }
       }, 500)
     }
-  }, [audioPlayer, recordingTimeout, isRecording, audioRecorder, isConversationMode, startListening])
-
-  // Fonction pour démarrer l'enregistrement avec détection de silence
-  const startListening = useCallback(async () => {
-    if (isRecording || !isConversationMode) return
-    
-    try {
-      console.log('🎤 Starting to listen...')
-      startRecording()
-      setAnimationState('listening')
-      setCurrentTranscript('')
-      
-      // Démarrer l'enregistrement avec détection de silence automatique (3 secondes)
-      await audioRecorder.startRecording(async () => {
-        console.log('🔇 3 seconds of silence detected - processing...')
-        if (isRecording) {
-          await processRecording()
-        }
-      })
-      
-    } catch (error) {
-      console.error('❌ Error starting recording:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
-      alert(`❌ Erreur microphone: ${errorMessage}\nAssurez-vous d'autoriser l'accès au microphone.`)
-      setAnimationState('idle')
-      setIsConversationMode(false)
-    }
-  }, [isRecording, audioRecorder, startRecording, isConversationMode])
+  }, [audioPlayer, recordingTimeout, isRecording, audioRecorder, isConversationMode])
 
   // Fonction pour traiter l'enregistrement 
   const processRecording = useCallback(async () => {
@@ -326,7 +299,34 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         }, retryDelay)
       }
     }
-  }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, isConversationMode, isRecording, startListening])
+  }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, isConversationMode, isRecording])
+
+  // Fonction pour démarrer l'enregistrement avec détection de silence
+  const startListening = useCallback(async () => {
+    if (isRecording || !isConversationMode) return
+    
+    try {
+      console.log('🎤 Starting to listen...')
+      startRecording()
+      setAnimationState('listening')
+      setCurrentTranscript('')
+      
+      // Démarrer l'enregistrement avec détection de silence automatique (3 secondes)
+      await audioRecorder.startRecording(async () => {
+        console.log('🔇 3 seconds of silence detected - processing...')
+        if (isRecording) {
+          await processRecording()
+        }
+      })
+      
+    } catch (error) {
+      console.error('❌ Error starting recording:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      alert(`❌ Erreur microphone: ${errorMessage}\nAssurez-vous d'autoriser l'accès au microphone.`)
+      setAnimationState('idle')
+      setIsConversationMode(false)
+    }
+  }, [isRecording, audioRecorder, startRecording, isConversationMode, processRecording])
 
   // Fonction principale pour gérer la conversation (style OpenAI)
   const handleConverseClick = useCallback(async () => {
