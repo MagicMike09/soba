@@ -1,33 +1,64 @@
--- Mettre à jour la table ai_config avec les nouveaux champs TTS et STT
--- Ajouter les colonnes si elles n'existent pas déjà
+-- Script de migration pour ajouter les champs TTS et STT à la table ai_config
+-- ⚠️ IMPORTANT: Exécutez ce script dans votre console Supabase SQL
 
-ALTER TABLE ai_config 
-ADD COLUMN IF NOT EXISTS tts_voice VARCHAR(20) DEFAULT 'alloy';
+-- 1. Ajouter les colonnes TTS/STT si elles n'existent pas
+DO $$
+BEGIN
+    -- Ajouter tts_voice
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'ai_config' AND column_name = 'tts_voice') THEN
+        ALTER TABLE ai_config ADD COLUMN tts_voice VARCHAR(20) DEFAULT 'alloy';
+        RAISE NOTICE 'Colonne tts_voice ajoutée';
+    ELSE
+        RAISE NOTICE 'Colonne tts_voice existe déjà';
+    END IF;
 
-ALTER TABLE ai_config 
-ADD COLUMN IF NOT EXISTS tts_speed DECIMAL(3,2) DEFAULT 1.0;
+    -- Ajouter tts_speed
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'ai_config' AND column_name = 'tts_speed') THEN
+        ALTER TABLE ai_config ADD COLUMN tts_speed DECIMAL(3,2) DEFAULT 1.0;
+        RAISE NOTICE 'Colonne tts_speed ajoutée';
+    ELSE
+        RAISE NOTICE 'Colonne tts_speed existe déjà';
+    END IF;
 
-ALTER TABLE ai_config 
-ADD COLUMN IF NOT EXISTS stt_language VARCHAR(10) DEFAULT 'fr';
+    -- Ajouter stt_language
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'ai_config' AND column_name = 'stt_language') THEN
+        ALTER TABLE ai_config ADD COLUMN stt_language VARCHAR(10) DEFAULT 'fr';
+        RAISE NOTICE 'Colonne stt_language ajoutée';
+    ELSE
+        RAISE NOTICE 'Colonne stt_language existe déjà';
+    END IF;
 
-ALTER TABLE ai_config 
-ADD COLUMN IF NOT EXISTS stt_model VARCHAR(20) DEFAULT 'whisper-1';
+    -- Ajouter stt_model
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                  WHERE table_name = 'ai_config' AND column_name = 'stt_model') THEN
+        ALTER TABLE ai_config ADD COLUMN stt_model VARCHAR(20) DEFAULT 'whisper-1';
+        RAISE NOTICE 'Colonne stt_model ajoutée';
+    ELSE
+        RAISE NOTICE 'Colonne stt_model existe déjà';
+    END IF;
+END $$;
 
--- Mettre à jour les enregistrements existants avec les valeurs par défaut
+-- 2. Mettre à jour les enregistrements existants avec les valeurs par défaut
 UPDATE ai_config 
 SET 
   tts_voice = COALESCE(tts_voice, 'alloy'),
   tts_speed = COALESCE(tts_speed, 1.0),
   stt_language = COALESCE(stt_language, 'fr'),
-  stt_model = COALESCE(stt_model, 'whisper-1')
-WHERE 
-  tts_voice IS NULL 
-  OR tts_speed IS NULL 
-  OR stt_language IS NULL 
-  OR stt_model IS NULL;
+  stt_model = COALESCE(stt_model, 'whisper-1');
 
--- Ajouter des commentaires pour documentation
-COMMENT ON COLUMN ai_config.tts_voice IS 'Voix OpenAI pour TTS: alloy, echo, fable, onyx, nova, shimmer';
-COMMENT ON COLUMN ai_config.tts_speed IS 'Vitesse de lecture TTS (0.25 à 4.0)';
-COMMENT ON COLUMN ai_config.stt_language IS 'Langue pour STT: fr, en, es, de, it, pt, auto';
-COMMENT ON COLUMN ai_config.stt_model IS 'Modèle Whisper pour STT: whisper-1';
+-- 3. Vérifier que les colonnes ont été créées
+SELECT 
+  column_name, 
+  data_type, 
+  column_default,
+  is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'ai_config' 
+  AND column_name IN ('tts_voice', 'tts_speed', 'stt_language', 'stt_model')
+ORDER BY column_name;
+
+-- 4. Afficher le contenu actuel pour vérification
+SELECT id, tts_voice, tts_speed, stt_language, stt_model FROM ai_config;

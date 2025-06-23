@@ -152,15 +152,44 @@ export default function BrainDashboard() {
     }
   }
 
+  // Fonction de test de connectivité
+  const testDatabaseConnection = async () => {
+    try {
+      console.log('🔍 Test de connectivité à la base de données...')
+      const { error } = await supabase.from('ai_config').select('id').limit(1)
+      
+      if (error) {
+        console.error('❌ Erreur de connectivité:', error)
+        alert(`❌ Problème de connexion à la base de données:\n${error.message}`)
+        return false
+      }
+      
+      console.log('✅ Base de données accessible')
+      return true
+    } catch (error) {
+      console.error('❌ Erreur de test:', error)
+      alert('❌ Impossible de se connecter à la base de données')
+      return false
+    }
+  }
+
   const updateAIConfig = async (updates: Partial<AIConfig>) => {
     if (!aiConfig) {
       alert('❌ Configuration non chargée. Veuillez recharger la page.')
       return
     }
 
+    // Test de connectivité avant la sauvegarde
+    const isConnected = await testDatabaseConnection()
+    if (!isConnected) {
+      return
+    }
+
     try {
-      // Update existing config
-      const updateData = {
+      console.log('🔄 Début de la sauvegarde:', updates)
+
+      // Préparer les données de base (colonnes existantes)
+      const baseUpdateData = {
         agent_name: updates.agentName ?? aiConfig.agentName,
         agent_mission: updates.agentMission ?? aiConfig.agentMission,
         agent_personality: updates.agentPersonality ?? aiConfig.agentPersonality,
@@ -168,26 +197,54 @@ export default function BrainDashboard() {
         llm_model: updates.llmModel ?? aiConfig.llmModel,
         llm_api_url: updates.llmApiUrl ?? aiConfig.llmApiUrl,
         temperature: updates.temperature ?? aiConfig.temperature,
-        tts_voice: updates.ttsVoice ?? aiConfig.ttsVoice ?? 'alloy',
-        tts_speed: updates.ttsSpeed ?? aiConfig.ttsSpeed ?? 1.0,
-        stt_language: updates.sttLanguage ?? aiConfig.sttLanguage ?? 'fr',
-        stt_model: updates.sttModel ?? aiConfig.sttModel ?? 'whisper-1',
         avatar_url: updates.avatarUrl ?? aiConfig.avatarUrl,
         avatar_position: updates.avatarPosition ?? aiConfig.avatarPosition
       }
 
-      console.log('🔄 Sauvegarde des données:', updateData)
+      // Ajouter les nouvelles colonnes seulement si elles sont fournies dans updates
+      const updateData: Record<string, unknown> = { ...baseUpdateData }
+      
+      if ('ttsVoice' in updates) {
+        updateData.tts_voice = updates.ttsVoice ?? aiConfig.ttsVoice ?? 'alloy'
+      }
+      if ('ttsSpeed' in updates) {
+        updateData.tts_speed = updates.ttsSpeed ?? aiConfig.ttsSpeed ?? 1.0
+      }
+      if ('sttLanguage' in updates) {
+        updateData.stt_language = updates.sttLanguage ?? aiConfig.sttLanguage ?? 'fr'
+      }
+      if ('sttModel' in updates) {
+        updateData.stt_model = updates.sttModel ?? aiConfig.sttModel ?? 'whisper-1'
+      }
+
+      console.log('🔄 Données finales à sauvegarder:', updateData)
       
       const { error } = await supabase.from('ai_config').update(updateData).eq('id', aiConfig.id)
-      if (error) throw error
       
-      // Reload data to refresh the interface
-      await loadData()
+      if (error) {
+        console.error('❌ Erreur Supabase détaillée:', error)
+        throw error
+      }
+      
+      // Mettre à jour l'état local immédiatement
+      setAIConfig(prev => prev ? { ...prev, ...updates } : null)
+      
+      console.log('✅ Sauvegarde réussie!')
       alert('✅ Configuration sauvegardée avec succès !')
+      
     } catch (error) {
-      console.error('Error updating AI config:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Vérifiez votre connexion.'
-      alert(`❌ Erreur lors de la sauvegarde: ${errorMessage}`)
+      console.error('❌ Erreur complète lors de la sauvegarde:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+      
+      if (errorMessage.includes('column') && errorMessage.includes('does not exist')) {
+        alert(`❌ Erreur de base de données: Une colonne n'existe pas encore. Veuillez exécuter le script SQL de migration:\n\nsupabase-tts-stt-update.sql\n\nDétails: ${errorMessage}`)
+      } else if (errorMessage.includes('authentication') || errorMessage.includes('JWT')) {
+        alert('❌ Erreur d\'authentification. Veuillez recharger la page.')
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        alert('❌ Erreur de connexion réseau. Vérifiez votre connexion internet.')
+      } else {
+        alert(`❌ Erreur lors de la sauvegarde: ${errorMessage}`)
+      }
     }
   }
 
