@@ -333,8 +333,12 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
       // Démarrer l'enregistrement avec détection de silence automatique (3 secondes)
       await audioRecorder.startRecording(async () => {
         console.log('🔇 3 seconds of silence detected - processing...')
-        if (isRecording && processRecordingRef.current) {
+        console.log('🔍 Callback state - isConversationMode:', isConversationMode, 'processRecordingRef:', !!processRecordingRef.current)
+        if (isConversationMode && processRecordingRef.current) {
+          console.log('✅ Calling processRecordingRef.current()')
           await processRecordingRef.current()
+        } else {
+          console.log('❌ Skipping processRecording - conditions not met')
         }
       })
       
@@ -362,14 +366,15 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
     }
 
     console.log('🎤 Conversation button clicked, current mode:', isConversationMode)
+    console.log('🎤 Call stack:', new Error().stack?.split('\n')[1])
     console.log('🎤 OpenAI service available:', !!openAIService)
     console.log('🎤 User context available:', !!userContext)
     console.log('🎤 Is recording:', isRecording)
     console.log('🎤 Is processing:', isProcessing)
     
-    // Désactiver temporairement le bouton
+    // Désactiver temporairement le bouton pendant l'enregistrement
     setIsConverseButtonDisabled(true)
-    setTimeout(() => setIsConverseButtonDisabled(false), 1000)
+    setTimeout(() => setIsConverseButtonDisabled(false), 5000) // 5 secondes pour éviter les clics pendant l'enregistrement
     
     if (!openAIService) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
