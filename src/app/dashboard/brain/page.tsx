@@ -187,7 +187,7 @@ export default function BrainDashboard() {
         if (error.message.includes('stt_language')) missingColumns.push('stt_language')
         if (error.message.includes('stt_model')) missingColumns.push('stt_model')
         
-        alert(`❌ Colonnes TTS/STT manquantes: ${missingColumns.join(', ')}\n\n🔧 Exécutez cette commande dans Supabase SQL Editor:\n\nALTER TABLE ai_config ADD COLUMN IF NOT EXISTS tts_voice VARCHAR(20) DEFAULT 'alloy', ADD COLUMN IF NOT EXISTS tts_speed DECIMAL(3,2) DEFAULT 1.0, ADD COLUMN IF NOT EXISTS stt_language VARCHAR(10) DEFAULT 'fr', ADD COLUMN IF NOT EXISTS stt_model VARCHAR(20) DEFAULT 'whisper-1';`)
+        alert(`❌ Colonnes TTS/STT manquantes: ${missingColumns.join(', ')}\n\n🔧 Exécutez ces commandes UNE PAR UNE dans Supabase SQL Editor:\n\n1. ALTER TABLE ai_config ADD COLUMN tts_voice VARCHAR(20) DEFAULT 'alloy';\n\n2. ALTER TABLE ai_config ADD COLUMN tts_speed DECIMAL(3,2) DEFAULT 1.0;\n\n3. ALTER TABLE ai_config ADD COLUMN stt_language VARCHAR(10) DEFAULT 'fr';\n\n4. ALTER TABLE ai_config ADD COLUMN stt_model VARCHAR(20) DEFAULT 'whisper-1';`)
         return false
       }
       
@@ -295,7 +295,7 @@ export default function BrainDashboard() {
         const missingColumn = errorMessage.match(/column "([^"]+)"/)?.[1] || 'inconnue'
         alert(`❌ Colonne manquante: "${missingColumn}"\n\n🔧 Solution:\n1. Allez dans Supabase → SQL Editor\n2. Exécutez: ALTER TABLE ai_config ADD COLUMN ${missingColumn} VARCHAR(20) DEFAULT 'alloy';\n3. Rechargez cette page\n\nOu exécutez le script complet: supabase-tts-stt-update.sql`)
       } else if (errorCode === '42703' || errorMessage.includes('does not exist')) {
-        alert(`❌ Erreur de base de données: Colonnes TTS/STT manquantes\n\n🔧 Exécutez ce script SQL dans Supabase:\n\nALTER TABLE ai_config ADD COLUMN tts_voice VARCHAR(20) DEFAULT 'alloy';\nALTER TABLE ai_config ADD COLUMN tts_speed DECIMAL(3,2) DEFAULT 1.0;\nALTER TABLE ai_config ADD COLUMN stt_language VARCHAR(10) DEFAULT 'fr';\nALTER TABLE ai_config ADD COLUMN stt_model VARCHAR(20) DEFAULT 'whisper-1';`)
+        alert(`❌ Erreur de base de données: Colonnes TTS/STT manquantes\n\n🔧 Exécutez ces commandes UNE PAR UNE dans Supabase SQL Editor:\n\n1. ALTER TABLE ai_config ADD COLUMN tts_voice VARCHAR(20) DEFAULT 'alloy';\n\n2. ALTER TABLE ai_config ADD COLUMN tts_speed DECIMAL(3,2) DEFAULT 1.0';\n\n3. ALTER TABLE ai_config ADD COLUMN stt_language VARCHAR(10) DEFAULT 'fr';\n\n4. ALTER TABLE ai_config ADD COLUMN stt_model VARCHAR(20) DEFAULT 'whisper-1';\n\nPuis rechargez cette page.`)
       } else if (errorMessage.includes('authentication') || errorMessage.includes('JWT')) {
         alert('❌ Erreur d\'authentification. Veuillez recharger la page.')
       } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
