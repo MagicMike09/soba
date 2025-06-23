@@ -42,7 +42,7 @@ const AdvisorModal: React.FC<AdvisorModalProps> = ({
         <div className="p-8 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900">
-              Choisir un conseiller
+              📧 Contacter un conseiller
             </h2>
             <button
               onClick={onClose}
@@ -52,7 +52,7 @@ const AdvisorModal: React.FC<AdvisorModalProps> = ({
             </button>
           </div>
           <p className="text-gray-600 mt-2">
-            Sélectionnez un conseiller pour commencer un appel
+            Sélectionnez un conseiller pour lui envoyer un email
           </p>
         </div>
 

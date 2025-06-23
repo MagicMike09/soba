@@ -79,13 +79,80 @@ export default function BrainDashboard() {
   const [apiTools, setAPITools] = useState<APITool[]>([])
   const [pronunciations, setPronunciations] = useState<Pronunciation[]>([])
   
-  const [activeTab, setActiveTab] = useState('agent')
+  // Analytics state
+  const [analytics, setAnalytics] = useState({
+    totalConversations: 0,
+    avgConversationTime: 0,
+    totalTokens: 0,
+    totalCost: 0,
+    conversationsToday: 0,
+    dailyStats: [] as Array<{date: string, conversations: number, tokens: number}>
+  })
+  
+  const [activeTab, setActiveTab] = useState('analytics')
   const [showModal, setShowModal] = useState<string | null>(null)
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string>('')
 
   useEffect(() => {
     loadData()
+    loadAnalytics()
   }, [])
+
+  const loadAnalytics = async () => {
+    try {
+      // Charger les analytics depuis la base de données
+      const { data: conversationsData } = await supabase
+        .from('conversations')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (conversationsData) {
+        // Calculer les statistiques
+        const total = conversationsData.length
+        const totalTokens = conversationsData.reduce((sum, conv) => sum + (conv.token_count || 0), 0)
+        const totalDuration = conversationsData.reduce((sum, conv) => sum + (conv.duration_seconds || 0), 0)
+        const avgTime = total > 0 ? Math.round(totalDuration / total) : 0
+        
+        // Calculer le coût (estimation GPT-4: $0.03/1K tokens input, $0.06/1K tokens output)
+        const estimatedCost = (totalTokens * 0.045) / 1000 // Moyenne input/output
+        
+        // Conversations aujourd'hui
+        const today = new Date().toISOString().split('T')[0]
+        const todayConversations = conversationsData.filter(conv => 
+          conv.created_at?.startsWith(today)
+        ).length
+
+        // Statistiques par jour (7 derniers jours)
+        const last7Days = []
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date()
+          date.setDate(date.getDate() - i)
+          const dateStr = date.toISOString().split('T')[0]
+          
+          const dayConversations = conversationsData.filter(conv => 
+            conv.created_at?.startsWith(dateStr)
+          )
+          
+          last7Days.push({
+            date: dateStr,
+            conversations: dayConversations.length,
+            tokens: dayConversations.reduce((sum, conv) => sum + (conv.token_count || 0), 0)
+          })
+        }
+
+        setAnalytics({
+          totalConversations: total,
+          avgConversationTime: avgTime,
+          totalTokens,
+          totalCost: estimatedCost,
+          conversationsToday: todayConversations,
+          dailyStats: last7Days
+        })
+      }
+    } catch (error) {
+      console.error('Error loading analytics:', error)
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -447,6 +514,7 @@ export default function BrainDashboard() {
   }
 
   const tabs = [
+    { id: 'analytics', label: 'Analytics', icon: '📊' },
     { id: 'agent', label: 'Configuration Agent', icon: '🤖' },
     { id: 'avatar', label: 'Avatar 3D', icon: '👤' },
     { id: 'llm', label: 'Modèle LLM', icon: '🧠' },
@@ -484,6 +552,142 @@ export default function BrainDashboard() {
 
         {/* Tab Content */}
         <div className="space-y-6">
+          
+          {/* Analytics Dashboard */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Conversations Total</p>
+                      <p className="text-3xl font-bold text-gray-900">{analytics.totalConversations}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <span className="text-2xl">💬</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-green-600 mt-2">
+                    +{analytics.conversationsToday} aujourd'hui
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Temps Moyen</p>
+                      <p className="text-3xl font-bold text-gray-900">{Math.floor(analytics.avgConversationTime / 60)}m {analytics.avgConversationTime % 60}s</p>
+                    </div>
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                      <span className="text-2xl">⏱️</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Par conversation
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Tokens Utilisés</p>
+                      <p className="text-3xl font-bold text-gray-900">{analytics.totalTokens.toLocaleString()}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <span className="text-2xl">🧠</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Total consommé
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Coût Estimé</p>
+                      <p className="text-3xl font-bold text-gray-900">${analytics.totalCost.toFixed(2)}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <span className="text-2xl">💰</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    GPT-4 pricing
+                  </p>
+                </div>
+              </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Daily Conversations Chart */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4">Conversations (7 derniers jours)</h3>
+                  <div className="space-y-3">
+                    {analytics.dailyStats.map((day) => (
+                      <div key={day.date} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">
+                          {new Date(day.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </span>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${Math.max(5, (day.conversations / Math.max(...analytics.dailyStats.map(d => d.conversations), 1)) * 100)}%` 
+                              }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 w-8 text-right">
+                            {day.conversations}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Token Usage Chart */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4">Tokens Utilisés (7 derniers jours)</h3>
+                  <div className="space-y-3">
+                    {analytics.dailyStats.map((day) => (
+                      <div key={day.date} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">
+                          {new Date(day.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </span>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${Math.max(5, (day.tokens / Math.max(...analytics.dailyStats.map(d => d.tokens), 1)) * 100)}%` 
+                              }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 w-16 text-right">
+                            {day.tokens.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Refresh Button */}
+              <div className="flex justify-center">
+                <button
+                  onClick={loadAnalytics}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
+                >
+                  <span>🔄</span>
+                  <span>Actualiser les données</span>
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Agent Configuration */}
           {activeTab === 'agent' && (

@@ -8,6 +8,7 @@ interface HeaderProps {
   onConverseClick: () => void
   onCallClick: () => void
   onHelpClick: () => void
+  onDiagnosticClick?: () => void
   isConversationMode?: boolean
 }
 
@@ -16,6 +17,7 @@ const Header: React.FC<HeaderProps> = ({
   onConverseClick,
   onCallClick,
   onHelpClick,
+  onDiagnosticClick,
   isConversationMode = false
 }) => {
   const [logoError, setLogoError] = useState(false)
@@ -65,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({
           onClick={onCallClick}
           className="px-6 py-3 rounded-lg font-medium bg-white text-black border-2 border-black hover:bg-black hover:text-white transition-all duration-200 hover:transform hover:scale-105"
         >
-          Appeler
+          📧 Contacter
         </button>
 
         <button
@@ -74,6 +76,16 @@ const Header: React.FC<HeaderProps> = ({
         >
           Aide
         </button>
+
+        {onDiagnosticClick && (
+          <button
+            onClick={onDiagnosticClick}
+            className="px-4 py-3 rounded-lg font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all duration-200"
+            title="Diagnostic Email & Appel"
+          >
+            🔧
+          </button>
+        )}
       </div>
     </header>
   )

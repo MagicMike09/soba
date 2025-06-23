@@ -8,9 +8,17 @@ export class AdvisorService {
   private publicKey: string
 
   constructor() {
-    this.serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || ''
-    this.templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || ''
-    this.publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || ''
+    this.serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'service_f0sjdrg'
+    this.templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || 'template_k3wd6mi'
+    this.publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || '82dYzmXc1wtyArf8s'
+    
+    console.log('🔧 AdvisorService constructor - Environment variables:')
+    console.log('ENV SERVICE_ID:', process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID)
+    console.log('ENV TEMPLATE_ID:', process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID)
+    console.log('ENV PUBLIC_KEY:', process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY)
+    console.log('Final serviceId:', this.serviceId)
+    console.log('Final templateId:', this.templateId)
+    console.log('Final publicKey:', this.publicKey)
   }
 
   /**
@@ -22,8 +30,22 @@ export class AdvisorService {
     conversationSummary?: string
   ): Promise<boolean> {
     try {
+      console.log('📧 AdvisorService: Starting email send process...')
+      console.log('📧 Service ID:', this.serviceId || 'MISSING')
+      console.log('📧 Template ID:', this.templateId || 'MISSING')
+      console.log('📧 Public Key:', this.publicKey || 'MISSING')
+      console.log('📧 Environment check:', {
+        SERVICE_ID: process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
+        TEMPLATE_ID: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
+        PUBLIC_KEY: process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+      })
+      
       if (!this.serviceId || !this.templateId || !this.publicKey) {
-        console.warn('⚠️ EmailJS configuration missing')
+        console.error('❌ EmailJS configuration missing!')
+        console.error('❌ Required environment variables:')
+        console.error('   - NEXT_PUBLIC_EMAILJS_SERVICE_ID')
+        console.error('   - NEXT_PUBLIC_EMAILJS_TEMPLATE_ID')
+        console.error('   - NEXT_PUBLIC_EMAILJS_PUBLIC_KEY')
         return false
       }
 
@@ -56,18 +78,27 @@ export class AdvisorService {
         urgency_level: 'Normal'
       }
 
-      await emailjs.send(
+      console.log('📧 AdvisorService: Email parameters prepared:', emailParams)
+      console.log('📧 AdvisorService: Calling emailjs.send...')
+
+      const result = await emailjs.send(
         this.serviceId,
         this.templateId,
         emailParams,
         this.publicKey
       )
 
+      console.log('✅ AdvisorService: EmailJS response:', result)
       console.log('✅ AdvisorService: Email sent successfully to', advisor.email)
       return true
 
     } catch (error) {
       console.error('❌ AdvisorService: Email sending failed:', error)
+      console.error('❌ Error details:', {
+        message: (error as Error).message,
+        name: (error as Error).name,
+        stack: (error as Error).stack
+      })
       return false
     }
   }

@@ -9,11 +9,12 @@ import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
 import ChatBox from '@/components/ChatBox'
 import FullConversation from '@/components/FullConversation'
-import CallStatus from '@/components/CallStatus'
+import EmailDiagnostic from '@/components/EmailDiagnostic'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
 import { getUserContext } from '@/utils/userContext'
 import { AudioAPI } from '@/utils/audioAPI'
 import { AdvisorService } from '@/utils/advisorService'
+import { analyticsService } from '@/utils/analyticsService'
 import { supabase } from '@/lib/supabase'
 import { Advisor, BrandConfig, AIConfig, AnimationState, UserContext } from '@/types'
 
@@ -35,6 +36,7 @@ function MainContent() {
   const [userContext, setUserContext] = useState<UserContext | null>(null)
   const [showAdvisorModal, setShowAdvisorModal] = useState(false)
   const [showHelpModal, setShowHelpModal] = useState(false)
+  const [showDiagnostic, setShowDiagnostic] = useState(false)
   const [showInfoBox, setShowInfoBox] = useState(true)
   const [showChatBox, setShowChatBox] = useState(false)
   const [animationState, setAnimationState] = useState<AnimationState>('idle')
@@ -45,10 +47,11 @@ function MainContent() {
   const [audioAPI, setAudioAPI] = useState<AudioAPI | null>(null)
   const [showFullConversation, setShowFullConversation] = useState(false)
   
-  // Call status
-  const [isCallActive, setIsCallActive] = useState(false)
-  const [currentAdvisor, setCurrentAdvisor] = useState<Advisor | null>(null)
+  // Removed call status - email only
   const [advisorService] = useState(() => new AdvisorService())
+  
+  // Analytics tracking
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
 
   // Load data
   useEffect(() => {
@@ -144,6 +147,15 @@ function MainContent() {
     if (isConversationMode) {
       // STOP conversation
       console.log('🛑 SIMPLE: Stopping conversation...')
+      
+      // Terminer le tracking analytics
+      if (currentSessionId) {
+        analyticsService.endConversation(currentSessionId, {
+          llmModel: aiConfig?.llmModel || 'gpt-4'
+        }).catch(console.error)
+        setCurrentSessionId(null)
+      }
+      
       setIsConversationMode(false)
       setShowChatBox(false)
       setShowFullConversation(false)
@@ -156,22 +168,40 @@ function MainContent() {
     } else {
       // START conversation
       console.log('🚀 SIMPLE: Starting conversation...')
+      
+      // Démarrer le tracking analytics
+      const sessionId = analyticsService.generateSessionId()
+      setCurrentSessionId(sessionId)
+      analyticsService.startConversation(sessionId, userContext)
+      
       setIsConversationMode(true)
       setShowChatBox(true)
       setShowFullConversation(true)
       setAnimationState('listening')
       
-      addMessage({ 
-        role: 'assistant', 
+      const welcomeMessage = { 
+        role: 'assistant' as const, 
         content: 'Bonjour ! Je vous écoute, vous pouvez commencer à parler.' 
-      })
+      }
+      addMessage(welcomeMessage)
+      
+      // Tracker le message de bienvenue
+      if (sessionId) {
+        analyticsService.addMessage(sessionId, welcomeMessage)
+      }
     }
   }, [audioAPI, isConversationMode, addMessage])
 
   // Handle transcript from FullConversation component
   const handleTranscript = (transcript: string) => {
     console.log('📝 COMPLETE: Received transcript:', transcript)
-    addMessage({ role: 'user', content: transcript })
+    const userMessage = { role: 'user' as const, content: transcript }
+    addMessage(userMessage)
+    
+    // Tracker le message utilisateur
+    if (currentSessionId) {
+      analyticsService.addMessage(currentSessionId, userMessage)
+    }
     
     // Update animation state
     setAnimationState('thinking')
@@ -180,7 +210,13 @@ function MainContent() {
   // Handle response from FullConversation component
   const handleResponse = (response: string) => {
     console.log('🤖 COMPLETE: Generated response:', response)
-    addMessage({ role: 'assistant', content: response })
+    const assistantMessage = { role: 'assistant' as const, content: response }
+    addMessage(assistantMessage)
+    
+    // Tracker la réponse de l'assistant
+    if (currentSessionId) {
+      analyticsService.addMessage(currentSessionId, assistantMessage, response.length / 4) // Estimation token count
+    }
     
     // Update animation state
     setAnimationState('talking')
@@ -199,23 +235,21 @@ function MainContent() {
 
   const handleCallClick = () => setShowAdvisorModal(true)
   const handleHelpClick = () => setShowHelpModal(true)
+  const handleDiagnosticClick = () => setShowDiagnostic(true)
 
   const handleSelectAdvisor = async (advisor: Advisor) => {
     try {
-      console.log('📞 Starting advisor call process for:', advisor.firstName, advisor.lastName)
+      console.log('📧 Sending email to advisor:', advisor.firstName, advisor.lastName)
       
-      // Fermer la modal et démarrer l'interface d'appel
+      // Fermer la modal
       setShowAdvisorModal(false)
-      setCurrentAdvisor(advisor)
-      setIsCallActive(true)
-      setAnimationState('calling')
       
       // Récupérer le résumé de conversation si disponible
       const conversationSummary = messages.length > 0 
         ? `Dernière conversation: ${messages.slice(-3).map(m => `${m.role}: ${m.content}`).join(' | ')}`
         : 'Demande de contact via l\'assistant virtuel'
 
-      // Envoyer l'email automatiquement en arrière-plan
+      // Envoyer l'email
       const emailSent = await advisorService.sendEmailToAdvisor(
         advisor, 
         userContext, 
@@ -223,67 +257,32 @@ function MainContent() {
       )
 
       if (emailSent) {
-        console.log('✅ Email notification sent to advisor')
+        // Tracker l'envoi d'email au conseiller
+        if (currentSessionId) {
+          analyticsService.updateAdvisorContact(currentSessionId, advisor.email).catch(console.error)
+        }
+        
         addMessage({ 
           role: 'system', 
-          content: `📧 Email envoyé à ${advisor.firstName} ${advisor.lastName}` 
+          content: `✅ Email envoyé à ${advisor.firstName} ${advisor.lastName}` 
         })
       } else {
-        console.warn('⚠️ Email notification failed')
         addMessage({ 
           role: 'system', 
-          content: `⚠️ Problème d'envoi email - Configuration EmailJS requise` 
+          content: `❌ Échec de l'envoi email à ${advisor.firstName} ${advisor.lastName}` 
         })
       }
 
     } catch (error) {
-      console.error('❌ Error in advisor call process:', error)
-      setAnimationState('idle')
-      setIsCallActive(false)
-      setCurrentAdvisor(null)
-      
+      console.error('❌ Error sending email:', error)
       addMessage({ 
         role: 'system', 
-        content: '❌ Erreur lors de l\'appel. Veuillez réessayer.' 
+        content: '❌ Erreur lors de l\'envoi email. Veuillez réessayer.' 
       })
     }
   }
 
-  const handleCallComplete = (result: 'completed' | 'failed' | 'cancelled') => {
-    console.log('📞 Call completed with result:', result)
-    
-    setIsCallActive(false)
-    setAnimationState('idle')
-    
-    if (currentAdvisor) {
-      let message = ''
-      switch (result) {
-        case 'completed':
-          message = `✅ Appel terminé avec ${currentAdvisor.firstName} ${currentAdvisor.lastName}`
-          break
-        case 'failed':
-          message = `❌ Appel échoué avec ${currentAdvisor.firstName} ${currentAdvisor.lastName}`
-          break
-        case 'cancelled':
-          message = `🚫 Appel annulé avec ${currentAdvisor.firstName} ${currentAdvisor.lastName}`
-          break
-      }
-      
-      addMessage({ role: 'system', content: message })
-      
-      // Envoyer notification de suivi au conseiller
-      if (result === 'completed' || result === 'failed') {
-        advisorService.sendFollowUpNotification(currentAdvisor, result).catch(console.error)
-      }
-    }
-    
-    setCurrentAdvisor(null)
-  }
-
-  const handleCancelCall = () => {
-    console.log('🚫 Call cancelled by user')
-    handleCallComplete('cancelled')
-  }
+  // Removed call handling functions - email only
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-gray-50 flex flex-col">
@@ -292,6 +291,7 @@ function MainContent() {
         onConverseClick={handleConverseClick}
         onCallClick={handleCallClick}
         onHelpClick={handleHelpClick}
+        onDiagnosticClick={handleDiagnosticClick}
         isConversationMode={isConversationMode}
       />
 
@@ -334,6 +334,12 @@ function MainContent() {
         onClose={() => setShowHelpModal(false)}
       />
 
+      <EmailDiagnostic
+        isOpen={showDiagnostic}
+        onClose={() => setShowDiagnostic(false)}
+        userContext={userContext}
+      />
+
       <ChatBox
         messages={messages}
         isRecording={isRecording}
@@ -366,15 +372,7 @@ function MainContent() {
         </div>
       )}
 
-      {/* Call Status Component */}
-      {isCallActive && currentAdvisor && (
-        <CallStatus
-          advisor={currentAdvisor}
-          isActive={isCallActive}
-          onCallComplete={handleCallComplete}
-          onCancel={handleCancelCall}
-        />
-      )}
+      {/* Removed CallStatus component - email only */}
 
     </div>
   )
