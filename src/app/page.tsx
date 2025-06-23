@@ -49,6 +49,7 @@ function MainContent() {
   
   // Refs pour éviter les dépendances circulaires
   const startListeningRef = useRef<(() => Promise<void>) | null>(null)
+  const processRecordingRef = useRef<(() => Promise<void>) | null>(null)
 
   // Load initial data
   useEffect(() => {
@@ -322,8 +323,8 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
       // Démarrer l'enregistrement avec détection de silence automatique (3 secondes)
       await audioRecorder.startRecording(async () => {
         console.log('🔇 3 seconds of silence detected - processing...')
-        if (isRecording) {
-          await processRecording()
+        if (isRecording && processRecordingRef.current) {
+          await processRecordingRef.current()
         }
       })
       
@@ -334,10 +335,11 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
       setAnimationState('idle')
       setIsConversationMode(false)
     }
-  }, [isRecording, audioRecorder, startRecording, isConversationMode, processRecording])
+  }, [isRecording, audioRecorder, startRecording, isConversationMode])
 
-  // Assigner la fonction à la ref pour éviter les dépendances circulaires
+  // Assigner les fonctions aux refs pour éviter les dépendances circulaires
   startListeningRef.current = startListening
+  processRecordingRef.current = processRecording
 
   // Fonction principale pour gérer la conversation (style OpenAI)
   const handleConverseClick = useCallback(async () => {

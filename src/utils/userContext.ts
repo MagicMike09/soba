@@ -49,7 +49,7 @@ export const getUserContext = async (): Promise<UserContext> => {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   // Vérifier le cache d'abord
-  let location: UserContext['location'] = getCachedLocation()
+  let location: UserContext['location'] = getCachedLocation() || undefined
 
   // Si pas de cache ou expiré, récupérer la nouvelle localisation
   if (!location) {
