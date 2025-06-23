@@ -129,7 +129,7 @@ function MainContent() {
 
   // ULTRA-SIMPLE conversation handler
   const handleConverseClick = useCallback(async () => {
-    console.log('🆕 ULTRA-SIMPLE conversation V5 FINAL, mode:', isConversationMode)
+    console.log('🆕 ULTRA-SIMPLE conversation V3, mode:', isConversationMode)
     
     if (!openAIService) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
@@ -153,7 +153,7 @@ function MainContent() {
       
       addMessage({ 
         role: 'assistant', 
-        content: 'ULTRA-SIMPLE V5: Parlez maintenant, je vous écoute pendant 4 secondes!' 
+        content: 'ULTRA-SIMPLE V3: Parlez maintenant, je vous écoute pendant 4 secondes!' 
       })
       
       // Start immediately

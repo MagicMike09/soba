@@ -14,8 +14,19 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
   },
-  // Ensure fresh builds
+  // Ensure fresh builds and bypass cache
   generateEtags: false,
+  headers: async () => [
+    {
+      source: '/(.*)',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'no-cache, no-store, must-revalidate',
+        },
+      ],
+    },
+  ],
 };
 
 export default nextConfig;
