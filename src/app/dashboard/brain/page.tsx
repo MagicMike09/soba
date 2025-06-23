@@ -201,6 +201,70 @@ export default function BrainDashboard() {
     }
   }
 
+  // Fonction pour tester la voix TTS
+  const testTTSVoice = async () => {
+    if (!aiConfig?.llmApiKey) {
+      alert('❌ Clé API OpenAI manquante. Veuillez d\'abord configurer votre clé API dans "Modèle LLM".')
+      return
+    }
+
+    try {
+      console.log('🔊 Test de la voix TTS...')
+      const testText = "Bonjour, je suis votre assistant virtuel."
+      const voice = aiConfig.ttsVoice || 'alloy'
+      const speed = aiConfig.ttsSpeed || 1.0
+
+      // Appel de l'API OpenAI TTS
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${aiConfig.llmApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: testText,
+          voice: voice,
+          response_format: 'mp3',
+          speed: speed
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.text()
+        console.error('❌ Erreur API TTS:', errorData)
+        
+        if (response.status === 401) {
+          alert('❌ Clé API OpenAI invalide. Vérifiez votre clé API.')
+        } else if (response.status === 429) {
+          alert('❌ Limite de taux dépassée. Attendez quelques minutes.')
+        } else {
+          alert(`❌ Erreur TTS: ${response.status} - ${errorData}`)
+        }
+        return
+      }
+
+      // Convertir la réponse en audio et jouer
+      const audioBuffer = await response.arrayBuffer()
+      const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' })
+      const audioUrl = URL.createObjectURL(audioBlob)
+      
+      const audio = new Audio(audioUrl)
+      audio.play()
+      
+      alert(`✅ Test TTS réussi!\nVoix: ${voice}\nVitesse: ${speed}x`)
+      
+      // Nettoyer l'URL après lecture
+      audio.addEventListener('ended', () => {
+        URL.revokeObjectURL(audioUrl)
+      })
+
+    } catch (error) {
+      console.error('❌ Erreur lors du test TTS:', error)
+      alert('❌ Erreur lors du test de la voix. Vérifiez votre connexion et votre clé API.')
+    }
+  }
+
   const updateAIConfig = async (updates: Partial<AIConfig>) => {
     if (!aiConfig) {
       alert('❌ Configuration non chargée. Veuillez recharger la page.')
@@ -792,7 +856,10 @@ export default function BrainDashboard() {
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-sm text-gray-600 mb-2">🎵 Aperçu</p>
                       <p className="text-xs text-gray-500">"Bonjour, je suis votre assistant virtuel."</p>
-                      <button className="mt-2 text-xs bg-green-100 text-green-700 px-3 py-1 rounded-md hover:bg-green-200 transition-colors">
+                      <button 
+                        onClick={testTTSVoice}
+                        className="mt-2 text-xs bg-green-100 text-green-700 px-3 py-1 rounded-md hover:bg-green-200 transition-colors"
+                      >
                         🔊 Tester la voix
                       </button>
                     </div>
