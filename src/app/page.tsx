@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -47,6 +47,8 @@ function MainContent() {
   const [audioPlayer] = useState(() => new AudioPlayer())
   const [openAIService, setOpenAIService] = useState<OpenAIService | null>(null)
   
+  // Refs pour éviter les dépendances circulaires
+  const startListeningRef = useRef<(() => Promise<void>) | null>(null)
 
   // Load initial data
   useEffect(() => {
@@ -158,8 +160,8 @@ function MainContent() {
     if (isConversationMode) {
       console.log('🔄 Restarting listening after interruption...')
       setTimeout(() => {
-        if (isConversationMode) {
-          startListening()
+        if (isConversationMode && startListeningRef.current) {
+          startListeningRef.current()
         }
       }, 500)
     }
@@ -242,7 +244,9 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         if (isConversationMode) {
           console.log('🔄 Continuing conversation...')
           setTimeout(async () => {
-            await startListening()
+            if (startListeningRef.current) {
+              await startListeningRef.current()
+            }
           }, 800) // Petite pause pour éviter le feedback audio
         } else {
           setAnimationState('idle')
@@ -251,7 +255,11 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         console.log('⚠️ No speech detected, listening again...')
         setIsProcessing(false)
         if (isConversationMode) {
-          setTimeout(async () => await startListening(), 500)
+          setTimeout(async () => {
+            if (startListeningRef.current) {
+              await startListeningRef.current()
+            }
+          }, 500)
         } else {
           setAnimationState('idle')
         }
@@ -271,9 +279,9 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         console.log('⚠️ Rate limit detected, pausing conversation...')
         alert('⏳ Limite de taux OpenAI atteinte. Pause de 60 secondes...')
         setTimeout(() => {
-          if (isConversationMode) {
+          if (isConversationMode && startListeningRef.current) {
             console.log('🔄 Resuming after rate limit...')
-            startListening()
+            startListeningRef.current()
           }
         }, 60000) // Attendre 60 secondes
       } else if (errorMessage.includes('microphone') || errorMessage.includes('media') || errorMessage.includes('NotAllowed')) {
@@ -283,8 +291,8 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         console.log('⚠️ Network error, retrying in 2 seconds...')
         if (isConversationMode) {
           setTimeout(async () => {
-            if (isConversationMode) {
-              await startListening()
+            if (isConversationMode && startListeningRef.current) {
+              await startListeningRef.current()
             }
           }, 2000)
         }
@@ -293,8 +301,8 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         // Backoff exponentiel pour les erreurs temporaires
         const retryDelay = Math.min(1000 * Math.pow(2, 1), 5000) // Max 5 secondes
         setTimeout(async () => {
-          if (isConversationMode) {
-            await startListening()
+          if (isConversationMode && startListeningRef.current) {
+            await startListeningRef.current()
           }
         }, retryDelay)
       }
@@ -327,6 +335,9 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
       setIsConversationMode(false)
     }
   }, [isRecording, audioRecorder, startRecording, isConversationMode, processRecording])
+
+  // Assigner la fonction à la ref pour éviter les dépendances circulaires
+  startListeningRef.current = startListening
 
   // Fonction principale pour gérer la conversation (style OpenAI)
   const handleConverseClick = useCallback(async () => {
@@ -369,10 +380,12 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
       
       // Démarrer l'écoute après un court délai
       setTimeout(() => {
-        startListening()
+        if (startListeningRef.current) {
+          startListeningRef.current()
+        }
       }, 1000)
     }
-  }, [openAIService, userContext, isConversationMode, stopAI, addMessage, startListening])
+  }, [openAIService, userContext, isConversationMode, stopAI, addMessage])
 
   const handleCallClick = () => {
     setShowAdvisorModal(true)
