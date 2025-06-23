@@ -8,9 +8,10 @@ import InfoBox from '@/components/InfoBox'
 import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
 import ChatBox from '@/components/ChatBox'
+import ConversationTest from '@/components/ConversationTest'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
 import { getUserContext } from '@/utils/userContext'
-import { OpenAIService, AudioRecorder, AudioPlayer } from '@/utils/openai'
+import { AudioAPI } from '@/utils/audioAPI'
 import { supabase } from '@/lib/supabase'
 import { Advisor, BrandConfig, AIConfig, AnimationState, UserContext } from '@/types'
 import * as emailjs from '@emailjs/browser'
@@ -25,7 +26,7 @@ const Avatar3D = dynamic(() => import('@/components/Avatar3D'), {
 })
 
 function MainContent() {
-  const { messages, isRecording, addMessage, startRecording, stopRecording } = useConversation()
+  const { messages, isRecording, addMessage } = useConversation()
   
   const [advisors, setAdvisors] = useState<Advisor[]>([])
   const [brandConfig, setBrandConfig] = useState<BrandConfig | null>(null)
@@ -37,13 +38,11 @@ function MainContent() {
   const [showChatBox, setShowChatBox] = useState(false)
   const [animationState, setAnimationState] = useState<AnimationState>('idle')
   
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [currentTranscript, setCurrentTranscript] = useState('')
   const [isConversationMode, setIsConversationMode] = useState(false)
   
-  const [audioRecorder] = useState(() => new AudioRecorder())
-  const [audioPlayer] = useState(() => new AudioPlayer())
-  const [openAIService, setOpenAIService] = useState<OpenAIService | null>(null)
+  // New Audio API instances
+  const [audioAPI, setAudioAPI] = useState<AudioAPI | null>(null)
+  const [showConversationTest, setShowConversationTest] = useState(false)
 
   // Load data
   useEffect(() => {
@@ -53,7 +52,7 @@ function MainContent() {
 
   useEffect(() => {
     if (aiConfig?.llmApiKey) {
-      setOpenAIService(new OpenAIService(aiConfig.llmApiKey))
+      setAudioAPI(new AudioAPI(aiConfig.llmApiKey))
     }
   }, [aiConfig])
 
@@ -127,102 +126,55 @@ function MainContent() {
     }
   }
 
-  // ULTRA-SIMPLE conversation handler
+  // NEW: Simplified conversation handler with backend TTS/STT
   const handleConverseClick = useCallback(async () => {
-    console.log('🆕 ULTRA-SIMPLE conversation V5 FINAL, mode:', isConversationMode)
+    console.log('🔄 NEW: Conversation button clicked - Backend TTS/STT implementation')
     
-    if (!openAIService) {
+    if (!audioAPI) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
       return
     }
 
     if (isConversationMode) {
-      // STOP
-      console.log('🛑 ULTRA-SIMPLE: Stopping...')
+      // STOP mode conversation
+      console.log('🛑 NEW: Stopping conversation mode...')
       setIsConversationMode(false)
-      if (isRecording) {
-        audioRecorder.stopRecording().catch(console.error)
-      }
+      setShowChatBox(false)
+      setShowConversationTest(false)
       setAnimationState('idle')
-      setTimeout(() => setShowChatBox(false), 2000)
-    } else {
-      // START
-      console.log('🚀 ULTRA-SIMPLE: Starting...')
-      setIsConversationMode(true)
-      setShowChatBox(true)
       
       addMessage({ 
-        role: 'assistant', 
-        content: 'ULTRA-SIMPLE V5: Parlez maintenant, je vous écoute pendant 4 secondes!' 
+        role: 'system', 
+        content: '🔄 Conversation terminée - Backend TTS/STT' 
       })
+    } else {
+      // START mode conversation
+      console.log('🚀 NEW: Starting conversation mode...')
+      setIsConversationMode(true)
+      setShowChatBox(true)
+      setShowConversationTest(true)
+      setAnimationState('idle')
       
-      // Start immediately
-      recordAndProcess()
+      addMessage({ 
+        role: 'system', 
+        content: '🔄 Mode conversation activé - Backend TTS/STT prêt' 
+      })
     }
-  }, [openAIService, isConversationMode, isRecording, addMessage])
+  }, [audioAPI, isConversationMode, addMessage])
 
-  // Direct function without useCallback
-  const recordAndProcess = async () => {
-    try {
-      console.log('🎙️ ULTRA-SIMPLE: Starting recording...')
-      startRecording()
-      setAnimationState('listening')
-      
-      await audioRecorder.startRecording()
-      
-      // Fixed 4 second timer
-      setTimeout(async () => {
-        try {
-          console.log('⏱️ ULTRA-SIMPLE: 4 seconds up, processing...')
-          stopRecording()
-          setIsProcessing(true)
-          setAnimationState('thinking')
-          
-          const audioBlob = await audioRecorder.stopRecording()
-          console.log('🎵 ULTRA-SIMPLE: Audio size:', audioBlob.size)
-          
-          if (audioBlob.size > 1000) {
-            // STT
-            console.log('📝 ULTRA-SIMPLE: STT...')
-            const transcript = await openAIService!.speechToText(audioBlob, 'fr')
-            console.log('✅ ULTRA-SIMPLE: Transcript:', transcript)
-            
-            if (transcript.trim()) {
-              addMessage({ role: 'user', content: transcript })
-              
-              // LLM
-              console.log('🧠 ULTRA-SIMPLE: LLM...')
-              const response = await openAIService!.generateResponse(
-                [...messages, { id: Date.now().toString(), role: 'user', content: transcript, timestamp: new Date() }],
-                'Tu es un assistant virtuel français. Réponds brièvement et clairement.',
-                userContext!,
-                'gpt-4',
-                0.7
-              )
-              
-              console.log('✅ ULTRA-SIMPLE: Response:', response)
-              addMessage({ role: 'assistant', content: response })
-            }
-          } else {
-            console.log('⚠️ ULTRA-SIMPLE: Audio too short')
-          }
-          
-          setIsProcessing(false)
-          setAnimationState('idle')
-          
-        } catch (error) {
-          console.error('❌ ULTRA-SIMPLE: Error:', error)
-          setIsProcessing(false)
-          setAnimationState('idle')
-          alert('Erreur: ' + (error as Error).message)
-        }
-      }, 4000)
-      
-    } catch (error) {
-      console.error('❌ ULTRA-SIMPLE: Recording error:', error)
-      setIsConversationMode(false)
-      alert('Erreur microphone: ' + (error as Error).message)
-    }
+  // Handle transcript from ConversationTest component
+  const handleTranscript = (transcript: string) => {
+    console.log('📝 NEW: Received transcript:', transcript)
+    addMessage({ role: 'user', content: transcript })
+    
+    // Generate AI response here if needed
+    // For now, just acknowledge the transcript
+  }
+
+  // Handle response from ConversationTest component
+  const handleResponse = (response: string) => {
+    console.log('🤖 NEW: Generated response:', response)
+    addMessage({ role: 'assistant', content: response })
   }
 
   const handleCallClick = () => setShowAdvisorModal(true)
@@ -311,11 +263,22 @@ function MainContent() {
       <ChatBox
         messages={messages}
         isRecording={isRecording}
-        isProcessing={isProcessing}
-        currentTranscript={currentTranscript}
+        isProcessing={false}
+        currentTranscript=""
         onToggle={() => setShowChatBox(!showChatBox)}
         isVisible={showChatBox}
       />
+
+      {/* Conversation Test Component */}
+      {showConversationTest && audioAPI && (
+        <div className="fixed bottom-20 right-4 z-50">
+          <ConversationTest
+            apiKey={aiConfig?.llmApiKey || ''}
+            onTranscript={handleTranscript}
+            onResponse={handleResponse}
+          />
+        </div>
+      )}
     </div>
   )
 }
