@@ -9,12 +9,13 @@ import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
 import ChatBox from '@/components/ChatBox'
 import FullConversation from '@/components/FullConversation'
+import CallStatus from '@/components/CallStatus'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
 import { getUserContext } from '@/utils/userContext'
 import { AudioAPI } from '@/utils/audioAPI'
+import { AdvisorService } from '@/utils/advisorService'
 import { supabase } from '@/lib/supabase'
 import { Advisor, BrandConfig, AIConfig, AnimationState, UserContext } from '@/types'
-import * as emailjs from '@emailjs/browser'
 
 const Avatar3D = dynamic(() => import('@/components/Avatar3D'), {
   ssr: false,
@@ -43,6 +44,11 @@ function MainContent() {
   // New Audio API instances
   const [audioAPI, setAudioAPI] = useState<AudioAPI | null>(null)
   const [showFullConversation, setShowFullConversation] = useState(false)
+  
+  // Call status
+  const [isCallActive, setIsCallActive] = useState(false)
+  const [currentAdvisor, setCurrentAdvisor] = useState<Advisor | null>(null)
+  const [advisorService] = useState(() => new AdvisorService())
 
   // Load data
   useEffect(() => {
@@ -196,33 +202,87 @@ function MainContent() {
 
   const handleSelectAdvisor = async (advisor: Advisor) => {
     try {
+      console.log('📞 Starting advisor call process for:', advisor.firstName, advisor.lastName)
+      
+      // Fermer la modal et démarrer l'interface d'appel
+      setShowAdvisorModal(false)
+      setCurrentAdvisor(advisor)
+      setIsCallActive(true)
       setAnimationState('calling')
       
-      if (process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID) {
-        await emailjs.send(
-          process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
-          process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
-          {
-            advisor_name: `${advisor.firstName} ${advisor.lastName}`,
-            advisor_email: advisor.email,
-            advisor_phone: advisor.phone,
-            user_context: JSON.stringify(userContext)
-          },
-          process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
-        )
+      // Récupérer le résumé de conversation si disponible
+      const conversationSummary = messages.length > 0 
+        ? `Dernière conversation: ${messages.slice(-3).map(m => `${m.role}: ${m.content}`).join(' | ')}`
+        : 'Demande de contact via l\'assistant virtuel'
+
+      // Envoyer l'email automatiquement en arrière-plan
+      const emailSent = await advisorService.sendEmailToAdvisor(
+        advisor, 
+        userContext, 
+        conversationSummary
+      )
+
+      if (emailSent) {
+        console.log('✅ Email notification sent to advisor')
+        addMessage({ 
+          role: 'system', 
+          content: `📧 Email envoyé à ${advisor.firstName} ${advisor.lastName}` 
+        })
+      } else {
+        console.warn('⚠️ Email notification failed')
+        addMessage({ 
+          role: 'system', 
+          content: `⚠️ Problème d'envoi email - Configuration EmailJS requise` 
+        })
       }
 
-      setTimeout(() => {
-        setAnimationState('idle')
-        setShowAdvisorModal(false)
-        alert(`Appel initié avec ${advisor.firstName} ${advisor.lastName}`)
-      }, 3000)
-
     } catch (error) {
-      console.error('Error calling advisor:', error)
+      console.error('❌ Error in advisor call process:', error)
       setAnimationState('idle')
-      alert('Erreur lors de l\'appel. Veuillez réessayer.')
+      setIsCallActive(false)
+      setCurrentAdvisor(null)
+      
+      addMessage({ 
+        role: 'system', 
+        content: '❌ Erreur lors de l\'appel. Veuillez réessayer.' 
+      })
     }
+  }
+
+  const handleCallComplete = (result: 'completed' | 'failed' | 'cancelled') => {
+    console.log('📞 Call completed with result:', result)
+    
+    setIsCallActive(false)
+    setAnimationState('idle')
+    
+    if (currentAdvisor) {
+      let message = ''
+      switch (result) {
+        case 'completed':
+          message = `✅ Appel terminé avec ${currentAdvisor.firstName} ${currentAdvisor.lastName}`
+          break
+        case 'failed':
+          message = `❌ Appel échoué avec ${currentAdvisor.firstName} ${currentAdvisor.lastName}`
+          break
+        case 'cancelled':
+          message = `🚫 Appel annulé avec ${currentAdvisor.firstName} ${currentAdvisor.lastName}`
+          break
+      }
+      
+      addMessage({ role: 'system', content: message })
+      
+      // Envoyer notification de suivi au conseiller
+      if (result === 'completed' || result === 'failed') {
+        advisorService.sendFollowUpNotification(currentAdvisor, result).catch(console.error)
+      }
+    }
+    
+    setCurrentAdvisor(null)
+  }
+
+  const handleCancelCall = () => {
+    console.log('🚫 Call cancelled by user')
+    handleCallComplete('cancelled')
   }
 
   return (
@@ -304,6 +364,16 @@ function MainContent() {
             onError={handleConversationError}
           />
         </div>
+      )}
+
+      {/* Call Status Component */}
+      {isCallActive && currentAdvisor && (
+        <CallStatus
+          advisor={currentAdvisor}
+          isActive={isCallActive}
+          onCallComplete={handleCallComplete}
+          onCancel={handleCancelCall}
+        />
       )}
 
     </div>
