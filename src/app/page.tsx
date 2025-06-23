@@ -42,6 +42,7 @@ function MainContent() {
   const [currentTranscript, setCurrentTranscript] = useState('')
   const [isConversationMode, setIsConversationMode] = useState(false)
   const [recordingTimeout, setRecordingTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [isConverseButtonDisabled, setIsConverseButtonDisabled] = useState(false)
   
   const [audioRecorder] = useState(() => new AudioRecorder())
   const [audioPlayer] = useState(() => new AudioPlayer())
@@ -170,7 +171,12 @@ function MainContent() {
 
   // Fonction pour traiter l'enregistrement 
   const processRecording = useCallback(async () => {
-    if (!openAIService || !userContext || !isRecording) return
+    console.log('🔄 processRecording called - openAI:', !!openAIService, 'userContext:', !!userContext, 'isRecording:', isRecording)
+    
+    if (!openAIService || !userContext || !isRecording) {
+      console.log('❌ processRecording aborted - missing requirements')
+      return
+    }
     
     try {
       console.log('🛑 Processing user speech...')
@@ -184,8 +190,12 @@ function MainContent() {
       if (audioBlob.size < 1000) {
         console.log('⚠️ Audio too short, listening again...')
         setIsProcessing(false)
-        if (isConversationMode) {
-          setTimeout(() => startListening(), 300)
+        if (isConversationMode && startListeningRef.current) {
+          setTimeout(() => {
+            if (startListeningRef.current) {
+              startListeningRef.current()
+            }
+          }, 300)
         }
         return
       }
@@ -337,15 +347,29 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
     }
   }, [isRecording, audioRecorder, startRecording, isConversationMode])
 
-  // Assigner les fonctions aux refs pour éviter les dépendances circulaires
-  startListeningRef.current = startListening
-  processRecordingRef.current = processRecording
+  // Assigner les fonctions aux refs dans un useEffect
+  useEffect(() => {
+    startListeningRef.current = startListening
+    processRecordingRef.current = processRecording
+  }, [startListening, processRecording])
 
   // Fonction principale pour gérer la conversation (style OpenAI)
   const handleConverseClick = useCallback(async () => {
+    // Protection contre les double-clics
+    if (isConverseButtonDisabled) {
+      console.log('🚫 Button click ignored - already processing')
+      return
+    }
+
     console.log('🎤 Conversation button clicked, current mode:', isConversationMode)
     console.log('🎤 OpenAI service available:', !!openAIService)
     console.log('🎤 User context available:', !!userContext)
+    console.log('🎤 Is recording:', isRecording)
+    console.log('🎤 Is processing:', isProcessing)
+    
+    // Désactiver temporairement le bouton
+    setIsConverseButtonDisabled(true)
+    setTimeout(() => setIsConverseButtonDisabled(false), 1000)
     
     if (!openAIService) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
@@ -387,7 +411,7 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         }
       }, 1000)
     }
-  }, [openAIService, userContext, isConversationMode, stopAI, addMessage])
+  }, [openAIService, userContext, isConversationMode, stopAI, addMessage, isConverseButtonDisabled, isRecording, isProcessing])
 
   const handleCallClick = () => {
     setShowAdvisorModal(true)
@@ -446,6 +470,7 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         onHelpClick={handleHelpClick}
         isConversationMode={isConversationMode}
         onStopAI={stopAI}
+        isDisabled={isConverseButtonDisabled}
       />
 
       <main className="flex-1 relative overflow-hidden">

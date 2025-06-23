@@ -10,6 +10,7 @@ interface HeaderProps {
   onHelpClick: () => void
   isConversationMode?: boolean
   onStopAI?: () => void
+  isDisabled?: boolean
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -18,7 +19,8 @@ const Header: React.FC<HeaderProps> = ({
   onCallClick,
   onHelpClick,
   isConversationMode = false,
-  onStopAI
+  onStopAI,
+  isDisabled = false
 }) => {
   const [logoError, setLogoError] = useState(false)
   return (
@@ -44,8 +46,11 @@ const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center space-x-4">
         <button
           onClick={onConverseClick}
+          disabled={isDisabled}
           className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-            isConversationMode
+            isDisabled 
+              ? 'bg-gray-400 text-white cursor-not-allowed'
+              : isConversationMode
               ? 'bg-red-500 text-white hover:bg-red-600'
               : 'bg-black text-white hover:bg-gray-800 hover:transform hover:scale-105'
           }`}
