@@ -46,20 +46,23 @@ const FullConversation: React.FC<FullConversationProps> = ({
   const [audioAPI] = useState(() => new AudioAPI(apiKey))
   const [recorder] = useState(() => new SimpleAudioRecorder())
 
-  // Auto-restart recording after speaking (for continuous conversation)
+  // Auto-start conversation when component mounts
   useEffect(() => {
-    const autoRestart = () => {
-      if (isActive && currentStep === 'idle' && !isRecording && !isProcessing && !isPlaying) {
-        setTimeout(() => {
-          if (isActive) {
-            startListening()
-          }
-        }, 1000) // Wait 1 second before restarting
-      }
+    console.log('🚀 FullConversation: Component mounted, auto-starting...')
+    startConversation()
+  }, [])
+
+  // Auto-start listening when conversation becomes active
+  useEffect(() => {
+    if (isActive && currentStep === 'idle' && !isRecording && !isProcessing && !isPlaying) {
+      console.log('🎤 FullConversation: Auto-starting listening...')
+      setTimeout(() => {
+        if (isActive) {
+          startListening()
+        }
+      }, 500) // Small delay to ensure state is settled
     }
-    
-    autoRestart()
-  }, [isActive, currentStep, isRecording, isProcessing, isPlaying])
+  }, [isActive])
 
   const buildSystemPrompt = (): string => {
     return `Tu es ${config.agentName || 'un assistant virtuel'}.
@@ -155,6 +158,15 @@ Utilise un ton amical et professionnel.`
       
       setIsPlaying(false)
       setCurrentStep('idle')
+      
+      // Auto-restart listening after speaking (continuous conversation)
+      if (isActive) {
+        setTimeout(() => {
+          if (isActive && currentStep === 'idle') {
+            startListening()
+          }
+        }, 1000)
+      }
       
     } catch (error: unknown) {
       const errorMessage = AudioAPI.handleAPIError(error)

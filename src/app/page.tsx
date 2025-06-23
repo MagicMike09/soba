@@ -8,7 +8,6 @@ import InfoBox from '@/components/InfoBox'
 import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
 import ChatBox from '@/components/ChatBox'
-import ConversationTest from '@/components/ConversationTest'
 import FullConversation from '@/components/FullConversation'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
 import { getUserContext } from '@/utils/userContext'
@@ -43,7 +42,6 @@ function MainContent() {
   
   // New Audio API instances
   const [audioAPI, setAudioAPI] = useState<AudioAPI | null>(null)
-  const [showConversationTest, setShowConversationTest] = useState(false)
   const [showFullConversation, setShowFullConversation] = useState(false)
 
   // Load data
@@ -128,9 +126,9 @@ function MainContent() {
     }
   }
 
-  // COMPLETE: Full conversation handler with STT → LLM → TTS flow
+  // SIMPLE: Toggle conversation mode - auto-start microphone
   const handleConverseClick = useCallback(async () => {
-    console.log('🔄 COMPLETE: Conversation button clicked - Full STT→LLM→TTS flow')
+    console.log('🔄 SIMPLE: Conversation button clicked - mode:', isConversationMode)
     
     if (!audioAPI) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
@@ -138,29 +136,28 @@ function MainContent() {
     }
 
     if (isConversationMode) {
-      // STOP mode conversation
-      console.log('🛑 COMPLETE: Stopping conversation mode...')
+      // STOP conversation
+      console.log('🛑 SIMPLE: Stopping conversation...')
       setIsConversationMode(false)
       setShowChatBox(false)
-      setShowConversationTest(false)
       setShowFullConversation(false)
       setAnimationState('idle')
       
       addMessage({ 
         role: 'system', 
-        content: '🔄 Conversation terminée - Flux complet STT→LLM→TTS' 
+        content: '🛑 Conversation arrêtée' 
       })
     } else {
-      // START mode conversation
-      console.log('🚀 COMPLETE: Starting conversation mode...')
+      // START conversation
+      console.log('🚀 SIMPLE: Starting conversation...')
       setIsConversationMode(true)
       setShowChatBox(true)
       setShowFullConversation(true)
-      setAnimationState('idle')
+      setAnimationState('listening')
       
       addMessage({ 
-        role: 'system', 
-        content: '🔄 Conversation fluide activée - STT→LLM→TTS en continu' 
+        role: 'assistant', 
+        content: 'Bonjour ! Je vous écoute, vous pouvez commencer à parler.' 
       })
     }
   }, [audioAPI, isConversationMode, addMessage])
@@ -309,16 +306,6 @@ function MainContent() {
         </div>
       )}
 
-      {/* Conversation Test Component (Debug Mode) */}
-      {showConversationTest && audioAPI && (
-        <div className="fixed bottom-20 left-4 z-50">
-          <ConversationTest
-            apiKey={aiConfig?.llmApiKey || ''}
-            onTranscript={handleTranscript}
-            onResponse={handleResponse}
-          />
-        </div>
-      )}
     </div>
   )
 }

@@ -85,11 +85,20 @@ export class AudioAPI {
    */
   async playAudioBuffer(audioBuffer: ArrayBuffer): Promise<void> {
     try {
-      console.log('🔊 AudioAPI: Playing audio buffer...')
+      console.log('🔊 AudioAPI: Playing audio buffer, size:', audioBuffer.byteLength, 'bytes')
+      
+      if (audioBuffer.byteLength === 0) {
+        throw new Error('Buffer audio vide')
+      }
       
       const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' })
       const audioUrl = URL.createObjectURL(audioBlob)
       const audio = new Audio(audioUrl)
+      
+      // Add more event listeners for debugging
+      audio.onloadstart = () => console.log('🔊 AudioAPI: Audio load started')
+      audio.oncanplay = () => console.log('🔊 AudioAPI: Audio can play')
+      audio.onplay = () => console.log('🔊 AudioAPI: Audio playing started')
       
       return new Promise((resolve, reject) => {
         audio.onended = () => {
@@ -104,7 +113,14 @@ export class AudioAPI {
           reject(new Error('Erreur lors de la lecture audio'))
         }
         
-        audio.play().catch(reject)
+        // Try to play with user interaction check
+        audio.play().then(() => {
+          console.log('✅ AudioAPI: Audio play() succeeded')
+        }).catch((playError) => {
+          console.error('❌ AudioAPI: Audio play() failed:', playError)
+          URL.revokeObjectURL(audioUrl)
+          reject(new Error(`Erreur lecture audio: ${playError.message}`))
+        })
       })
       
     } catch (error) {
