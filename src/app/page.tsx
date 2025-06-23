@@ -357,9 +357,9 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
     processRecordingRef.current = processRecording
   }, [startListening, processRecording])
 
-  // Version simplifiée pour tester STT + Chat + LLM
+  // Version simplifiée pour tester STT + Chat + LLM - V2
   const handleConverseClick = useCallback(async () => {
-    console.log('🎤 Simple conversation clicked, mode:', isConversationMode)
+    console.log('🎤 NEW Simple conversation clicked, mode:', isConversationMode)
     
     if (!openAIService) {
       alert('⚠️ Clé OpenAI manquante. Configurez votre clé API dans le Dashboard Brain.')
@@ -376,20 +376,101 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
       setAnimationState('idle')
       setTimeout(() => setShowChatBox(false), 2000)
     } else {
-      // START - Démarrer une session simple
-      console.log('🚀 Starting simple conversation...')
+      // START - Mode one-shot simple
+      console.log('🚀 NEW Starting simple conversation...')
       setIsConversationMode(true)
       setShowChatBox(true)
       
       addMessage({ 
         role: 'assistant', 
-        content: 'Bonjour ! Parlez maintenant, j\'attendrai 3 secondes de silence pour traiter votre message.' 
+        content: 'NOUVEAU: Parlez maintenant, j\'attendrai 3 secondes de silence pour traiter votre message.' 
       })
       
-      // Démarrer l'enregistrement immédiatement
-      await startSimpleRecording()
+      // Mode one-shot : un seul enregistrement
+      await startOneShotRecording()
     }
-  }, [openAIService, isConversationMode, isRecording, addMessage, startSimpleRecording])
+  }, [openAIService, isConversationMode, isRecording, addMessage, startOneShotRecording])
+
+  // Mode one-shot - un enregistrement simple sans callback
+  const startOneShotRecording = useCallback(async () => {
+    try {
+      console.log('🎤 ONE-SHOT: Starting recording...')
+      startRecording()
+      setAnimationState('listening')
+      
+      // Enregistrement direct avec timeout simple
+      await audioRecorder.startRecording()
+      
+      // Attendre 5 secondes puis traiter
+      setTimeout(async () => {
+        console.log('⏰ ONE-SHOT: Timeout reached, processing...')
+        await processOneShotRecording()
+      }, 5000)
+      
+    } catch (error) {
+      console.error('❌ ONE-SHOT Error:', error)
+      alert('❌ Erreur microphone. Autorisez l\'accès au microphone.')
+      setIsConversationMode(false)
+    }
+  }, [startRecording, processOneShotRecording])
+
+  // Traitement one-shot
+  const processOneShotRecording = useCallback(async () => {
+    try {
+      console.log('🔄 ONE-SHOT: Processing recording...')
+      stopRecording()
+      setIsProcessing(true)
+      setAnimationState('thinking')
+      
+      const audioBlob = await audioRecorder.stopRecording()
+      console.log('🎵 ONE-SHOT: Audio blob size:', audioBlob.size, 'bytes')
+      
+      if (audioBlob.size < 1000) {
+        console.log('⚠️ ONE-SHOT: Audio too short')
+        setIsProcessing(false)
+        setAnimationState('idle')
+        return
+      }
+      
+      // STT
+      console.log('📝 ONE-SHOT: Converting speech to text...')
+      const transcript = await openAIService!.speechToText(audioBlob, aiConfig?.sttLanguage || 'fr')
+      console.log('✅ ONE-SHOT: Transcript:', transcript)
+      
+      if (transcript.trim()) {
+        // Ajouter au chat
+        addMessage({ role: 'user', content: transcript })
+        
+        // LLM
+        const systemPrompt = `Tu es ${aiConfig?.agentName || 'un assistant virtuel'}.
+${aiConfig?.agentMission || 'Tu aides les utilisateurs avec leurs questions.'}
+${aiConfig?.agentPersonality || 'Tu es professionnel et serviable.'}
+
+Réponds de manière naturelle et conversationnelle en français.`
+        
+        console.log('🧠 ONE-SHOT: Generating AI response...')
+        const response = await openAIService!.generateResponse(
+          [...messages, { id: 'temp', role: 'user', content: transcript, timestamp: new Date() }],
+          systemPrompt,
+          userContext!,
+          aiConfig?.llmModel || 'gpt-4',
+          aiConfig?.temperature || 0.7
+        )
+        
+        console.log('✅ ONE-SHOT: AI response:', response)
+        addMessage({ role: 'assistant', content: response })
+      }
+      
+      setIsProcessing(false)
+      setAnimationState('idle')
+      
+    } catch (error) {
+      console.error('❌ ONE-SHOT Error processing:', error)
+      setIsProcessing(false)
+      setAnimationState('idle')
+      alert('❌ Erreur lors du traitement. Vérifiez votre clé API OpenAI.')
+    }
+  }, [stopRecording, audioRecorder, openAIService, aiConfig, addMessage, messages, userContext])
 
   // Fonction simplifiée d'enregistrement
   const startSimpleRecording = useCallback(async () => {
