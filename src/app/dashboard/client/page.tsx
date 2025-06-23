@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Advisor, BrandConfig } from '@/types'
 
@@ -60,7 +61,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, accept, label, curren
           {uploading ? 'Téléchargement...' : 'Choisir fichier'}
         </label>
         {currentUrl && (
-          <img src={currentUrl} alt="Preview" className="w-12 h-12 object-cover rounded" />
+          <Image src={currentUrl} alt="Preview" width={48} height={48} className="object-cover rounded" />
         )}
       </div>
     </div>
@@ -305,9 +306,11 @@ export default function ClientDashboard() {
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
                       {advisor.photoUrl ? (
-                        <img
+                        <Image
                           src={advisor.photoUrl}
                           alt={advisor.name}
+                          width={48}
+                          height={48}
                           className="w-full h-full object-cover"
                         />
                       ) : (

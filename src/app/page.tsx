@@ -47,8 +47,6 @@ function MainContent() {
   const [audioPlayer] = useState(() => new AudioPlayer())
   const [openAIService, setOpenAIService] = useState<OpenAIService | null>(null)
   
-  // Référence pour éviter les dépendances circulaires
-  const startListeningRef = useRef<(() => Promise<void>) | null>(null)
 
   // Load initial data
   useEffect(() => {
@@ -328,7 +326,7 @@ Utilise le contexte temporel et géographique si pertinent pour la conversation.
         }, retryDelay)
       }
     }
-  }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, isConversationMode, isRecording])
+  }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, isConversationMode, isRecording, startListening])
 
   // Fonction principale pour gérer la conversation (style OpenAI)
   const handleConverseClick = useCallback(async () => {
