@@ -9,7 +9,7 @@ import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
 import ChatBox from '@/components/ChatBox'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
-import { getUserContext } from '@/utils/userContext'
+import { getUserContext, formatContextForAI } from '@/utils/userContext'
 import { OpenAIService, AudioRecorder, AudioPlayer } from '@/utils/openai'
 import { supabase } from '@/lib/supabase'
 import { Advisor, BrandConfig, AIConfig, AnimationState, UserContext } from '@/types'
@@ -136,18 +136,36 @@ function MainContent() {
   // Fonction pour interrompre l'IA
   const stopAI = useCallback(() => {
     console.log('⛔ Interrupting AI...')
+    
+    // Arrêter l'audio immédiatement
     audioPlayer.stop()
-    setAnimationState('idle')
-    setIsProcessing(false)
-    if (recordingTimeout) {
-      clearTimeout(recordingTimeout)
-      setRecordingTimeout(null)
-    }
+    
     // Arrêter l'enregistrement si actif
     if (isRecording) {
       audioRecorder.stopRecording().catch(console.error)
     }
-  }, [audioPlayer, recordingTimeout, isRecording, audioRecorder])
+    
+    // Nettoyer tous les timeouts
+    if (recordingTimeout) {
+      clearTimeout(recordingTimeout)
+      setRecordingTimeout(null)
+    }
+    
+    // Réinitialiser tous les états
+    setAnimationState('idle')
+    setIsProcessing(false)
+    setCurrentTranscript('')
+    
+    // Si on est en mode conversation, redémarrer l'écoute après une petite pause
+    if (isConversationMode) {
+      console.log('🔄 Restarting listening after interruption...')
+      setTimeout(() => {
+        if (isConversationMode) {
+          startListening()
+        }
+      }, 500)
+    }
+  }, [audioPlayer, recordingTimeout, isRecording, audioRecorder, isConversationMode, startListening])
 
   // Fonction pour démarrer l'enregistrement avec détection de silence
   const startListening = useCallback(async () => {
@@ -207,18 +225,26 @@ function MainContent() {
         // Ajouter le message utilisateur
         addMessage({ role: 'user', content: transcript })
         
-        // Générer la réponse IA
+        // Récupérer le contexte utilisateur actualisé
+        console.log('🌍 Updating user context...')
+        const currentContext = await getUserContext()
+        
+        // Générer la réponse IA avec contexte actualisé
         const systemPrompt = `Tu es ${aiConfig?.agentName || 'un assistant virtuel'}.
 ${aiConfig?.agentMission || 'Tu aides les utilisateurs avec leurs questions.'}
 ${aiConfig?.agentPersonality || 'Tu es professionnel et serviable.'}
 
-Réponds de manière naturelle et conversationnelle en français. Garde tes réponses courtes et engageantes (maximum 2-3 phrases).`
+CONTEXTE UTILISATEUR:
+${formatContextForAI(currentContext)}
+
+Réponds de manière naturelle et conversationnelle en français. Garde tes réponses courtes et engageantes (maximum 2-3 phrases). 
+Utilise le contexte temporel et géographique si pertinent pour la conversation.`
 
         console.log('🧠 Generating AI response...')
         const response = await openAIService.generateResponse(
           [...messages, { id: 'temp', role: 'user', content: transcript, timestamp: new Date() }],
           systemPrompt,
-          userContext,
+          currentContext,
           aiConfig?.llmModel || 'gpt-4',
           aiConfig?.temperature || 0.7
         )
@@ -266,19 +292,40 @@ Réponds de manière naturelle et conversationnelle en français. Garde tes rép
       
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
       
-      if (errorMessage.includes('API') || errorMessage.includes('key')) {
-        alert('❌ Erreur API OpenAI. Vérifiez votre clé API dans le Dashboard Brain.')
+      // Gestion d'erreurs spécifiques avec retry intelligent
+      if (errorMessage.includes('401') || errorMessage.includes('key') || errorMessage.includes('Unauthorized')) {
+        alert('❌ Clé API OpenAI invalide ou expirée. Vérifiez votre configuration dans le Dashboard Brain.')
         setIsConversationMode(false)
-      } else if (errorMessage.includes('microphone') || errorMessage.includes('media')) {
+      } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+        console.log('⚠️ Rate limit detected, pausing conversation...')
+        alert('⏳ Limite de taux OpenAI atteinte. Pause de 60 secondes...')
+        setTimeout(() => {
+          if (isConversationMode) {
+            console.log('🔄 Resuming after rate limit...')
+            startListening()
+          }
+        }, 60000) // Attendre 60 secondes
+      } else if (errorMessage.includes('microphone') || errorMessage.includes('media') || errorMessage.includes('NotAllowed')) {
         alert('❌ Erreur microphone. Autorisez l\'accès au microphone et rechargez la page.')
         setIsConversationMode(false)
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        console.log('⚠️ Network error, retrying in 2 seconds...')
+        if (isConversationMode) {
+          setTimeout(async () => {
+            if (isConversationMode) {
+              await startListening()
+            }
+          }, 2000)
+        }
       } else if (isConversationMode) {
-        console.log('⚠️ Temporary error, retrying...')
+        console.log('⚠️ Temporary error, retrying with backoff...')
+        // Backoff exponentiel pour les erreurs temporaires
+        const retryDelay = Math.min(1000 * Math.pow(2, 1), 5000) // Max 5 secondes
         setTimeout(async () => {
-          if (startListeningRef.current) {
-            await startListeningRef.current()
+          if (isConversationMode) {
+            await startListening()
           }
-        }, 1000)
+        }, retryDelay)
       }
     }
   }, [openAIService, userContext, audioRecorder, audioPlayer, stopRecording, messages, addMessage, aiConfig, isConversationMode, isRecording])

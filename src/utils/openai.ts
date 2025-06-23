@@ -264,8 +264,8 @@ export class AudioRecorder {
       const dataArray = new Uint8Array(bufferLength)
       
       let silenceCount = 0
-      const silenceThreshold = 15 // Seuil plus robuste
-      const requiredSilenceChecks = 12 // ~3 secondes à 250ms par check
+      const silenceThreshold = 20 // Seuil amélioré pour éviter faux positifs
+      const requiredSilenceChecks = 15 // ~3.75 secondes à 250ms par check pour être sûr
       
       const checkSilence = () => {
         if (!this.analyser || !this.silenceDetection) return
