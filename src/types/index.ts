@@ -103,4 +103,4 @@ export interface Pronunciation {
   pronunciation: string
 }
 
-export type AnimationState = 'idle' | 'talking' | 'thinking' | 'waiting' | 'calling' | 'laughing' | 'listening'
+export type AnimationState = 'idle' | 'talking' | 'thinking' | 'waiting' | 'calling' | 'laughing' | 'listening' | 'hello' | 'bye'

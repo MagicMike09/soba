@@ -90,6 +90,7 @@ const AvatarModel: React.FC<AvatarModelProps> = ({
         )
         break
       case 'waiting':
+      case 'listening':
         targetAnimation = animations.find(clip => 
           clip.name.toLowerCase().includes('wait') || 
           clip.name.toLowerCase().includes('idle')
@@ -105,6 +106,20 @@ const AvatarModel: React.FC<AvatarModelProps> = ({
         targetAnimation = animations.find(clip => 
           clip.name.toLowerCase().includes('laugh') || 
           clip.name.toLowerCase().includes('happy')
+        )
+        break
+      case 'hello':
+        targetAnimation = animations.find(clip => 
+          clip.name.toLowerCase().includes('hello') || 
+          clip.name.toLowerCase().includes('wave') ||
+          clip.name.toLowerCase().includes('greeting')
+        )
+        break
+      case 'bye':
+        targetAnimation = animations.find(clip => 
+          clip.name.toLowerCase().includes('bye') || 
+          clip.name.toLowerCase().includes('goodbye') ||
+          clip.name.toLowerCase().includes('farewell')
         )
         break
     }

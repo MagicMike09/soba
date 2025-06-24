@@ -15,6 +15,7 @@ import { getUserContext } from '@/utils/userContext'
 import { AudioAPI } from '@/utils/audioAPI'
 import { AdvisorService } from '@/utils/advisorService'
 import { analyticsService } from '@/utils/analyticsService'
+import { AnimationService } from '@/utils/animationService'
 import { supabase } from '@/lib/supabase'
 import { Advisor, BrandConfig, AIConfig, AnimationState, UserContext } from '@/types'
 
@@ -52,6 +53,10 @@ function MainContent() {
   
   // Analytics tracking
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  
+  // Animation states
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [lastAnimationChange, setLastAnimationChange] = useState<number>(Date.now())
 
   // Load data
   useEffect(() => {
@@ -64,6 +69,56 @@ function MainContent() {
       setAudioAPI(new AudioAPI(aiConfig.llmApiKey))
     }
   }, [aiConfig])
+
+  // Animation intelligence: analyser les messages pour déclencher les bonnes animations
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1]
+    
+    if (lastMessage && Date.now() - lastAnimationChange > 1000) {
+      const newAnimationState = AnimationService.analyzeMessage(
+        lastMessage.content, 
+        lastMessage.role
+      )
+      
+      if (newAnimationState !== animationState) {
+        console.log('🎭 Animation change:', animationState, '->', newAnimationState, 'for message:', lastMessage.content)
+        setAnimationState(newAnimationState)
+        setLastAnimationChange(Date.now())
+        
+        // Pour les animations temporaires (hello, bye), retourner à idle après un délai
+        if (newAnimationState === 'hello' || newAnimationState === 'bye') {
+          setTimeout(() => {
+            setAnimationState('idle')
+          }, 3000)
+        }
+        
+        // Pour talking, revenir à idle après le message
+        if (newAnimationState === 'talking' && lastMessage.role === 'assistant') {
+          const messageLength = lastMessage.content.length
+          const duration = Math.max(2000, Math.min(messageLength * 50, 8000)) // 50ms par caractère, max 8s
+          setTimeout(() => {
+            setAnimationState('idle')
+          }, duration)
+        }
+      }
+    }
+  }, [messages, animationState, lastAnimationChange])
+
+  // Animation intelligence: états de conversation (recording, processing)
+  useEffect(() => {
+    const conversationState = AnimationService.analyzeConversationState(
+      isRecording,
+      isProcessing,
+      messages[messages.length - 1],
+      isConversationMode && messages.length === 0
+    )
+    
+    if (conversationState !== animationState && Date.now() - lastAnimationChange > 500) {
+      console.log('🎭 State animation change:', animationState, '->', conversationState)
+      setAnimationState(conversationState)
+      setLastAnimationChange(Date.now())
+    }
+  }, [isRecording, isProcessing, isConversationMode, animationState, lastAnimationChange, messages])
 
   const loadData = async () => {
     try {
@@ -159,11 +214,15 @@ function MainContent() {
       setIsConversationMode(false)
       setShowChatBox(false)
       setShowFullConversation(false)
-      setAnimationState('idle')
+      setIsProcessing(false)
+      
+      // Animation d'au revoir
+      setAnimationState('bye')
+      setTimeout(() => setAnimationState('idle'), 3000)
       
       addMessage({ 
         role: 'system', 
-        content: '🛑 Conversation arrêtée' 
+        content: '🛑 Conversation arrêtée - Au revoir !' 
       })
     } else {
       // START conversation
@@ -177,7 +236,10 @@ function MainContent() {
       setIsConversationMode(true)
       setShowChatBox(true)
       setShowFullConversation(true)
-      setAnimationState('listening')
+      
+      // Animation de salutation
+      setAnimationState('hello')
+      setTimeout(() => setAnimationState('listening'), 2000)
       
       const welcomeMessage = { 
         role: 'assistant' as const, 
