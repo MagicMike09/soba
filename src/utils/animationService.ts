@@ -20,71 +20,84 @@ export class AnimationService {
 
   /**
    * Analyser le contenu d'un message pour déterminer l'animation appropriée
+   * Basé sur les actions Blender : Idle, Hello, Talk, Think, Bye
    */
   static analyzeMessage(content: string, context: 'user' | 'assistant' | 'system'): AnimationState {
     const lowerContent = content.toLowerCase().trim()
 
+    console.log('🎬 AnimationService analyzing:', context, content)
+
     // Messages système
     if (context === 'system') {
       if (lowerContent.includes('conversation arrêtée') || 
+          lowerContent.includes('au revoir') ||
           lowerContent.includes('fin de') || 
           lowerContent.includes('terminé')) {
+        console.log('🎬 System message → bye')
         return 'bye'
       }
       if (lowerContent.includes('conversation démarré') || 
           lowerContent.includes('bienvenue') ||
-          lowerContent.includes('bonjour')) {
+          lowerContent.includes('bonjour') ||
+          lowerContent.includes('je vous écoute')) {
+        console.log('🎬 System message → hello')
         return 'hello'
       }
+      console.log('🎬 System message → idle')
       return 'idle'
     }
 
-    // Messages utilisateur
+    // Messages utilisateur - l'IA doit écouter (idle) car l'utilisateur parle
     if (context === 'user') {
-      // Vérifier les salutations
+      // Vérifier les salutations pour répondre avec hello
       if (this.containsWords(lowerContent, this.greetingWords)) {
+        console.log('🎬 User greeting → hello')
         return 'hello'
       }
 
-      // Vérifier les adieux
+      // Vérifier les adieux pour répondre avec bye
       if (this.containsWords(lowerContent, this.farewellWords)) {
+        console.log('🎬 User farewell → bye')
         return 'bye'
       }
 
-      // Si l'utilisateur pose une question
-      if (this.containsWords(lowerContent, this.questionWords) || lowerContent.includes('?')) {
-        return 'listening'
-      }
-
-      return 'listening'
+      // Utilisateur parle normalement - avatar écoute (idle)
+      console.log('🎬 User speaking → idle (listening)')
+      return 'idle'
     }
 
-    // Messages de l'assistant
+    // Messages de l'assistant - l'IA parle (talk)
     if (context === 'assistant') {
       // Vérifier les salutations en début de message
       if (this.containsWords(lowerContent, this.greetingWords)) {
+        console.log('🎬 Assistant greeting → hello')
         return 'hello'
       }
 
       // Vérifier les adieux
       if (this.containsWords(lowerContent, this.farewellWords)) {
+        console.log('🎬 Assistant farewell → bye')
         return 'bye'
       }
 
       // Vérifier les expressions de réflexion
       if (this.containsWords(lowerContent, this.thinkingWords)) {
+        console.log('🎬 Assistant thinking → thinking')
         return 'thinking'
       }
 
-      // Message normal de l'assistant
+      // Message normal de l'assistant - animation talk
+      console.log('🎬 Assistant speaking → talking')
       return 'talking'
     }
 
+    console.log('🎬 Default → idle')
     return 'idle'
   }
 
   /**
    * Analyser le contexte de la conversation pour ajuster l'animation
+   * États prioritaires selon les actions Blender : Idle, Hello, Talk, Think, Bye
    */
   static analyzeConversationState(
     isRecording: boolean,
@@ -93,29 +106,37 @@ export class AnimationService {
     conversationStarted?: boolean
   ): AnimationState {
     
+    console.log('🎬 ConversationState - recording:', isRecording, 'processing:', isProcessing, 'started:', conversationStarted)
+    
     // États prioritaires
     if (isRecording) {
-      return 'listening'
+      console.log('🎬 ConversationState → idle (user speaking, avatar listening)')
+      return 'idle'  // Avatar écoute pendant que l'utilisateur parle
     }
 
     if (isProcessing) {
-      return 'thinking'
+      console.log('🎬 ConversationState → thinking (processing)')
+      return 'thinking'  // Animation Think de Blender
     }
 
     // Si conversation vient de commencer
     if (conversationStarted) {
-      return 'hello'
+      console.log('🎬 ConversationState → hello (conversation started)')
+      return 'hello'  // Animation Hello de Blender
     }
 
     // Analyser le dernier message si disponible
     if (lastMessage) {
-      return this.analyzeMessage(
+      const state = this.analyzeMessage(
         lastMessage.content, 
         lastMessage.role as 'user' | 'assistant' | 'system'
       )
+      console.log('🎬 ConversationState → based on last message:', state)
+      return state
     }
 
-    return 'idle'
+    console.log('🎬 ConversationState → idle (default)')
+    return 'idle'  // Animation Idle de Blender par défaut
   }
 
   /**

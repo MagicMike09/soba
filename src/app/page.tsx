@@ -127,8 +127,10 @@ function MainContent() {
   // États de conversation prioritaires (sans dépendance cyclique)
   useEffect(() => {
     if (isRecording) {
-      changeAnimationSafely('listening')
+      // Utilisateur parle → Avatar écoute (animation Idle)
+      changeAnimationSafely('idle')
     } else if (isProcessing) {
+      // IA réfléchit → Animation Think
       changeAnimationSafely('thinking')
     }
   }, [isRecording, isProcessing, changeAnimationSafely])
@@ -258,7 +260,7 @@ function MainContent() {
       setShowChatBox(true)
       setShowFullConversation(true)
       
-      // Animation de salutation
+      // Animation de salutation puis retour à idle pour écouter
       changeAnimationSafely('hello', 2000)
       
       const welcomeMessage = { 

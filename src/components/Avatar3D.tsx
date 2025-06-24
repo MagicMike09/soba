@@ -42,11 +42,17 @@ const AvatarModel: React.FC<AvatarModelProps> = ({
       setMixer(newMixer)
       setAnimations(gltf.animations)
       
+      // Debug: Log all available animations
+      console.log('🎬 Available animations:', gltf.animations.map(clip => clip.name))
+      
       // Play idle animation by default
       const idleAnimation = gltf.animations.find(clip => 
+        clip.name.toLowerCase() === 'idle' ||
         clip.name.toLowerCase().includes('idle') || 
         clip.name.toLowerCase().includes('rest')
       ) || gltf.animations[0]
+      
+      console.log('🎬 Playing default animation:', idleAnimation?.name)
       
       if (idleAnimation) {
         const action = newMixer.clipAction(idleAnimation)
@@ -59,7 +65,7 @@ const AvatarModel: React.FC<AvatarModelProps> = ({
         mixer.stopAllAction()
       }
     }
-  }, [gltf, mixer])
+  }, [gltf])
 
   useEffect(() => {
     if (!mixer || !animations.length) return
@@ -70,68 +76,61 @@ const AvatarModel: React.FC<AvatarModelProps> = ({
     // Find and play animation based on state
     let targetAnimation: THREE.AnimationClip | undefined
 
+    console.log('🎬 Looking for animation state:', animationState)
+
+    // Helper function to find animation by multiple names
+    const findAnimationByNames = (names: string[]) => {
+      return animations.find(clip => {
+        const clipName = clip.name.toLowerCase()
+        return names.some(name => 
+          clipName === name.toLowerCase() || 
+          clipName.includes(name.toLowerCase())
+        )
+      })
+    }
+
     switch (animationState) {
       case 'idle':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('idle') || 
-          clip.name.toLowerCase().includes('rest')
-        )
+        targetAnimation = findAnimationByNames(['Idle', 'idle', 'rest', 'default'])
         break
       case 'talking':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('talk') || 
-          clip.name.toLowerCase().includes('speak')
-        )
+        targetAnimation = findAnimationByNames(['Talk', 'talk', 'speak', 'speaking'])
         break
       case 'thinking':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('think') || 
-          clip.name.toLowerCase().includes('ponder')
-        )
+        targetAnimation = findAnimationByNames(['Think', 'think', 'ponder', 'pondering'])
+        break
+      case 'hello':
+        targetAnimation = findAnimationByNames(['Hello', 'hello', 'wave', 'greeting', 'hi'])
+        break
+      case 'bye':
+        targetAnimation = findAnimationByNames(['Bye', 'bye', 'goodbye', 'farewell', 'wave'])
         break
       case 'waiting':
       case 'listening':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('wait') || 
-          clip.name.toLowerCase().includes('idle')
-        )
+        // Pour listening, on utilise idle si pas d'animation spécifique
+        targetAnimation = findAnimationByNames(['Listen', 'listen', 'wait', 'waiting', 'Idle', 'idle'])
         break
       case 'calling':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('call') || 
-          clip.name.toLowerCase().includes('wave')
-        )
+        targetAnimation = findAnimationByNames(['Call', 'call', 'wave', 'Hello', 'hello'])
         break
       case 'laughing':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('laugh') || 
-          clip.name.toLowerCase().includes('happy')
-        )
-        break
-      case 'hello':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('hello') || 
-          clip.name.toLowerCase().includes('wave') ||
-          clip.name.toLowerCase().includes('greeting')
-        )
-        break
-      case 'bye':
-        targetAnimation = animations.find(clip => 
-          clip.name.toLowerCase().includes('bye') || 
-          clip.name.toLowerCase().includes('goodbye') ||
-          clip.name.toLowerCase().includes('farewell')
-        )
+        targetAnimation = findAnimationByNames(['Laugh', 'laugh', 'happy', 'joy'])
         break
     }
 
-    // Fallback to first animation if specific one not found
+    // Fallback to idle or first animation if specific one not found
     if (!targetAnimation) {
-      targetAnimation = animations[0]
+      targetAnimation = findAnimationByNames(['Idle', 'idle']) || animations[0]
+      console.log('🎬 Fallback to:', targetAnimation?.name)
     }
+
+    console.log('🎬 Selected animation:', targetAnimation?.name, 'for state:', animationState)
 
     if (targetAnimation) {
       const action = mixer.clipAction(targetAnimation)
       action.reset().fadeIn(0.5).play()
+    } else {
+      console.warn('🎬 No animation found for state:', animationState)
     }
   }, [animationState, mixer, animations])
 
