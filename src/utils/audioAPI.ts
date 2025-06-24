@@ -216,8 +216,8 @@ export class AudioAPI {
         newMessages,
         config.systemPrompt || 'Tu es un assistant virtuel français. Réponds de manière naturelle et conversationnelle.',
         config.userContext,
-        config.llmModel || 'gpt-4',
-        config.temperature || 0.7
+        config.llmModel || 'gpt-3.5-turbo',
+        config.temperature || 0.1
       )
       
       // 3. TTS - Text to Speech

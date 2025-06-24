@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { AudioAPI, SimpleAudioRecorder } from '@/utils/audioAPI'
+import { AudioAPI } from '@/utils/audioAPI'
+import { EnhancedAudioRecorder } from '@/utils/enhancedAudioRecorder'
 
 interface FullConversationProps {
   apiKey: string
@@ -44,12 +45,18 @@ const FullConversation: React.FC<FullConversationProps> = ({
   const [error, setError] = useState('')
   
   const [audioAPI] = useState(() => new AudioAPI(apiKey))
-  const [recorder] = useState(() => new SimpleAudioRecorder())
+  const [recorder] = useState(() => new EnhancedAudioRecorder())
 
-  // Auto-start conversation when component mounts
+  // Auto-start conversation when component mounts + cleanup on unmount
   useEffect(() => {
     console.log('🚀 FullConversation: Component mounted, auto-starting...')
     startConversation()
+    
+    // Cleanup au démontage du composant
+    return () => {
+      console.log('🧹 FullConversation: Component unmounting, cleaning up...')
+      recorder.cleanup()
+    }
   }, [])
 
   // Auto-start listening when conversation becomes active
@@ -60,18 +67,25 @@ const FullConversation: React.FC<FullConversationProps> = ({
         if (isActive) {
           startListening()
         }
-      }, 500) // Small delay to ensure state is settled
+      }, 200) // Reduced delay for faster startup
     }
   }, [isActive])
 
   const buildSystemPrompt = (): string => {
-    return `Tu es ${config.agentName || 'un assistant virtuel'}.
-${config.agentMission || 'Tu aides les utilisateurs avec leurs questions.'}
-${config.agentPersonality || 'Tu es professionnel et serviable.'}
+    return `Tu es ${config.agentName || 'un assistant virtuel'} de l'entreprise.
+${config.agentMission || 'Tu aides les utilisateurs avec leurs questions et les informes sur nos services.'}
+${config.agentPersonality || 'Tu es professionnel, serviable et expert de notre domaine.'}
 
-Réponds de manière naturelle et conversationnelle en français. 
-Garde tes réponses courtes et engageantes (maximum 2-3 phrases).
-Utilise un ton amical et professionnel.`
+INSTRUCTIONS IMPORTANTES:
+- Tu DOIS utiliser la base de connaissances fournie pour répondre précisément
+- Si l'information est dans notre base de données, réponds avec ces données exactes
+- Si tu n'as pas l'information, dis clairement "Je n'ai pas cette information" et propose de contacter un conseiller
+- Réponds de manière concise (1-2 phrases) mais complète
+- Utilise un ton professionnel et confiant
+- Mentionne tes sources quand tu utilises notre base de connaissances
+- Pour des questions complexes ou des demandes spécifiques, oriente vers nos conseillers experts
+
+PRIORITÉ: Toujours privilégier les informations de notre base de connaissances officielle.`
   }
 
   const startListening = async () => {
@@ -80,15 +94,22 @@ Utilise un ton amical et professionnel.`
       setIsRecording(true)
       setCurrentStep('listening')
       
-      await recorder.startRecording()
-      console.log('🎤 FullConversation: Started listening...')
+      console.log('🎤 FullConversation: Starting intelligent listening...')
       
-      // Auto-stop after 5 seconds or when user stops speaking
-      setTimeout(async () => {
-        if (recorder.isRecording()) {
-          await processRecording()
+      // Démarrer l'enregistrement avec détection de silence intelligente
+      await recorder.startRecording({
+        silenceThreshold: -40,     // Plus sensible pour détecter fin de parole
+        silenceTimeout: 1200,      // 1.2s de silence pour arrêt auto
+        maxRecordingTime: 15000,   // Max 15s de sécurité
+        onSilenceDetected: () => {
+          console.log('🔇 FullConversation: Silence detected, processing...')
+          if (recorder.isRecording()) {
+            processRecording()
+          }
         }
-      }, 5000)
+      })
+      
+      console.log('✅ FullConversation: Intelligent listening started')
       
     } catch (error: unknown) {
       const errorMessage = AudioAPI.handleAPIError(error)
@@ -108,7 +129,7 @@ Utilise un ton amical et professionnel.`
       const audioBlob = await recorder.stopRecording()
       console.log('🔄 FullConversation: Processing audio blob size:', audioBlob.size)
       
-      if (audioBlob.size < 1000) {
+      if (audioBlob.size < 500) {
         console.log('⚠️ FullConversation: Audio too short, restarting...')
         setIsProcessing(false)
         setCurrentStep('idle')
@@ -123,10 +144,10 @@ Utilise un ton amical et professionnel.`
           sttLanguage: config.sttLanguage || 'fr',
           systemPrompt: buildSystemPrompt(),
           userContext: userContext,
-          llmModel: config.llmModel || 'gpt-4',
-          temperature: config.temperature || 0.7,
+          llmModel: config.llmModel || 'gpt-3.5-turbo',
+          temperature: config.temperature || 0.1,
           ttsVoice: config.ttsVoice || 'alloy',
-          ttsSpeed: config.ttsSpeed || 1.0
+          ttsSpeed: config.ttsSpeed || 1.2
         }
       )
       
@@ -165,7 +186,7 @@ Utilise un ton amical et professionnel.`
           if (isActive && currentStep === 'idle') {
             startListening()
           }
-        }, 1000)
+        }, 500)
       }
       
     } catch (error: unknown) {
@@ -192,20 +213,18 @@ Utilise un ton amical et professionnel.`
     setIsPlaying(false)
     setCurrentStep('idle')
     
-    // Stop any ongoing recording
-    if (recorder.isRecording()) {
-      recorder.stopRecording().catch(console.error)
-    }
+    // Nettoyage complet du recorder amélioré
+    recorder.cleanup()
     
-    console.log('🛑 FullConversation: Stopped conversation mode')
+    console.log('🛑 FullConversation: Conversation stopped with cleanup')
   }
 
   const getStatusText = (): string => {
     switch (currentStep) {
-      case 'listening': return '🎤 Je vous écoute...'
-      case 'processing': return '🧠 Je réfléchis...'
-      case 'speaking': return '🔊 Je réponds...'
-      default: return isActive ? '✅ Prêt à vous écouter' : '⏸️ En pause'
+      case 'listening': return '🎤 Parlez maintenant (arrêt automatique au silence)...'
+      case 'processing': return '🧠 Traitement en cours...'
+      case 'speaking': return '🔊 Réponse en cours...'
+      default: return isActive ? '✅ Prêt - Conversation continue' : '⏸️ En pause'
     }
   }
 
