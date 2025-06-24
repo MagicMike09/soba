@@ -2,9 +2,22 @@
 
 export class AudioAPI {
   private apiKey: string
+  private currentAudio: HTMLAudioElement | null = null
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
+  }
+
+  /**
+   * Arrêter l'audio en cours (pour couper la parole de l'IA)
+   */
+  stopCurrentAudio(): void {
+    if (this.currentAudio) {
+      console.log('🛑 AudioAPI: Stopping current audio')
+      this.currentAudio.pause()
+      this.currentAudio.currentTime = 0
+      this.currentAudio = null
+    }
   }
 
   /**
@@ -81,7 +94,7 @@ export class AudioAPI {
   }
 
   /**
-   * Jouer un buffer audio avec gestion des erreurs
+   * Jouer un buffer audio avec gestion des erreurs et interruption
    */
   async playAudioBuffer(audioBuffer: ArrayBuffer): Promise<void> {
     try {
@@ -95,6 +108,9 @@ export class AudioAPI {
       const audioUrl = URL.createObjectURL(audioBlob)
       const audio = new Audio(audioUrl)
       
+      // Stocker l'audio actuel pour permettre l'interruption
+      this.currentAudio = audio
+      
       // Add more event listeners for debugging
       audio.onloadstart = () => console.log('🔊 AudioAPI: Audio load started')
       audio.oncanplay = () => console.log('🔊 AudioAPI: Audio can play')
@@ -104,13 +120,24 @@ export class AudioAPI {
         audio.onended = () => {
           console.log('✅ AudioAPI: Audio playback completed')
           URL.revokeObjectURL(audioUrl)
+          this.currentAudio = null
           resolve()
         }
         
         audio.onerror = (error) => {
           console.error('❌ AudioAPI: Audio playback error:', error)
           URL.revokeObjectURL(audioUrl)
+          this.currentAudio = null
           reject(new Error('Erreur lors de la lecture audio'))
+        }
+        
+        // Gérer l'interruption manuelle
+        audio.onpause = () => {
+          if (this.currentAudio === null) {
+            console.log('🛑 AudioAPI: Audio interrupted by user')
+            URL.revokeObjectURL(audioUrl)
+            resolve() // Résoudre comme un arrêt normal
+          }
         }
         
         // Try to play with user interaction check
@@ -119,6 +146,7 @@ export class AudioAPI {
         }).catch((playError) => {
           console.error('❌ AudioAPI: Audio play() failed:', playError)
           URL.revokeObjectURL(audioUrl)
+          this.currentAudio = null
           reject(new Error(`Erreur lecture audio: ${playError.message}`))
         })
       })

@@ -54,6 +54,38 @@ const SimpleConversation: React.FC<SimpleConversationProps> = ({
     }
   }, [isActive, currentStep])
 
+  // Démarrer l'écoute pour interruption automatique pendant que l'IA parle
+  useEffect(() => {
+    if (isActive && currentStep === 'speaking') {
+      let interruptionRecorder: EnhancedAudioRecorder | null = null
+      
+      const startInterruptionListening = async () => {
+        try {
+          interruptionRecorder = new EnhancedAudioRecorder()
+          await interruptionRecorder.startRecording({
+            silenceThreshold: -40, // Plus sensible pour détecter rapidement
+            silenceTimeout: 800,   // Très court pour réagir vite
+            onSilenceDetected: () => {
+              // L'utilisateur a parlé assez longtemps, on interrompt l'IA
+              console.log('🗣️ User speech detected during AI speaking - interrupting')
+              interruptAI()
+              interruptionRecorder?.cleanup()
+            }
+          })
+        } catch (error) {
+          console.error('Erreur écoute interruption:', error)
+        }
+      }
+      
+      startInterruptionListening()
+      
+      // Nettoyer quand on n'est plus en train de parler
+      return () => {
+        interruptionRecorder?.cleanup()
+      }
+    }
+  }, [currentStep, isActive])
+
   const buildSystemPrompt = (): string => {
     return `Tu es ${config.agentName || 'un assistant virtuel'}. 
 Tu aides les utilisateurs avec leurs questions de manière naturelle et conversationnelle.
@@ -66,9 +98,9 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       setCurrentStep('listening')
       
       await recorder.startRecording({
-        silenceThreshold: -45, // Plus sensible au silence
-        silenceTimeout: 2000,  // Attendre 2s de silence
-        maxRecordingTime: 20000, // 20 secondes max
+        silenceThreshold: -35, // Moins sensible = détecte mieux la vraie parole
+        silenceTimeout: 3000,  // 3 secondes pour bien finir la phrase
+        maxRecordingTime: 30000, // 30 secondes max
         onSilenceDetected: () => {
           if (recorder.isRecording()) {
             processRecording()
@@ -90,8 +122,8 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       
       const audioBlob = await recorder.stopRecording()
       
-      // Vérification taille minimale plus stricte pour éviter transcriptions vides
-      if (audioBlob.size < 2000) { // 2KB minimum
+      // Vérification taille minimale - plus permissive
+      if (audioBlob.size < 1000) { // 1KB minimum
         console.log('🎤 Audio trop court, ignoré. Taille:', audioBlob.size, 'bytes')
         setIsProcessing(false)
         setCurrentStep('idle')
@@ -145,10 +177,38 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
     }
   }
 
-  const startConversation = () => {
+  const interruptAI = () => {
+    if (currentStep === 'speaking') {
+      console.log('🛑 User interrupting AI speech')
+      audioAPI.stopCurrentAudio()
+      setCurrentStep('idle')
+      onSpeakingChange?.(false)
+    }
+  }
+
+  const startConversation = async () => {
     setIsActive(true)
     setMessages([])
+    setCurrentStep('speaking')
+    onSpeakingChange?.(true)
+    
+    try {
+      // Message de bienvenue avec TTS
+      const welcomeMessage = `Bonjour! Je suis ${config.agentName || 'votre assistant virtuel'}. Comment puis-je vous aider aujourd'hui?`
+      console.log('🎬 Playing welcome message with TTS')
+      
+      const audioBuffer = await audioAPI.textToSpeech(welcomeMessage, config.ttsVoice || 'alloy')
+      await audioAPI.playAudioBuffer(audioBuffer)
+      
+      // Ajouter le message de bienvenue à l'historique
+      setMessages([{ role: 'assistant', content: welcomeMessage }])
+      
+    } catch (error) {
+      console.error('Erreur message de bienvenue:', error)
+    }
+    
     setCurrentStep('idle')
+    onSpeakingChange?.(false)
   }
 
   const stopConversation = () => {
@@ -188,12 +248,22 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
             🚀 Démarrer
           </button>
         ) : (
-          <button
-            onClick={stopConversation}
-            className="flex-1 px-3 sm:px-4 py-2 bg-red-500 text-white rounded text-sm sm:text-base font-medium hover:bg-red-600 transition-colors"
-          >
-            🛑 Arrêter
-          </button>
+          <>
+            <button
+              onClick={stopConversation}
+              className="flex-1 px-3 sm:px-4 py-2 bg-red-500 text-white rounded text-sm sm:text-base font-medium hover:bg-red-600 transition-colors"
+            >
+              🛑 Arrêter
+            </button>
+            {currentStep === 'speaking' && (
+              <button
+                onClick={interruptAI}
+                className="px-3 sm:px-4 py-2 bg-orange-500 text-white rounded text-sm sm:text-base font-medium hover:bg-orange-600 transition-colors"
+              >
+                ✋ Couper
+              </button>
+            )}
+          </>
         )}
       </div>
       

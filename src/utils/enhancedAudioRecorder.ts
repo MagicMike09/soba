@@ -20,23 +20,23 @@ export class EnhancedAudioRecorder {
     try {
       console.log('🎤 EnhancedAudioRecorder: Initializing...')
       
-      // Configuration audio optimisée pour STT haute qualité
+      // Configuration audio optimisée pour STT - plus conservatrice mais fiable
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000, // Qualité maximale puis downsample
-          channelCount: 1    // Mono pour STT
+          echoCancellation: false, // Désactiver pour garder la vraie voix
+          noiseSuppression: false, // Désactiver car peut dégrader la voix
+          autoGainControl: true,   // Garder pour normaliser le volume
+          sampleRate: 16000,       // 16kHz optimal pour Whisper
+          channelCount: 1          // Mono pour STT
         } 
       })
       
       // Setup audio analysis pour détection de silence
-      this.audioContext = new AudioContext({ sampleRate: 48000 })
+      this.audioContext = new AudioContext({ sampleRate: 16000 })
       const source = this.audioContext.createMediaStreamSource(this.stream)
       this.analyser = this.audioContext.createAnalyser()
-      this.analyser.fftSize = 4096 // Plus de résolution pour meilleure détection
-      this.analyser.smoothingTimeConstant = 0.9 // Plus lisse
+      this.analyser.fftSize = 2048 // Équilibré entre performance et précision
+      this.analyser.smoothingTimeConstant = 0.3 // Moins lisse = plus réactif
       source.connect(this.analyser)
       
       this.isInitialized = true
@@ -76,7 +76,7 @@ export class EnhancedAudioRecorder {
         
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
-        audioBitsPerSecond: 256000 // Qualité très élevée pour STT
+        audioBitsPerSecond: 128000 // Qualité optimale sans surcharge
       })
       
       this.mediaRecorder.ondataavailable = (event) => {
