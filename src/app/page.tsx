@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -56,7 +56,6 @@ function MainContent() {
   
   // Animation states
   const [isProcessing, setIsProcessing] = useState(false)
-  const [lastAnimationChange, setLastAnimationChange] = useState<number>(Date.now())
 
   // Load data
   useEffect(() => {
@@ -70,61 +69,78 @@ function MainContent() {
     }
   }, [aiConfig])
 
-  // Animation intelligence: analyser les messages pour déclencher les bonnes animations
+  // Référence pour éviter les boucles d'animation
+  const lastProcessedMessageIdRef = useRef<string | null>(null)
+  const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Fonction pour changer d'animation de manière sécurisée
+  const changeAnimationSafely = useCallback((newState: AnimationState, duration?: number) => {
+    if (newState === animationState) return
+
+    console.log('🎭 Safe animation change:', animationState, '->', newState)
+    
+    // Nettoyer le timeout précédent
+    if (animationTimeoutRef.current) {
+      clearTimeout(animationTimeoutRef.current)
+      animationTimeoutRef.current = null
+    }
+
+    setAnimationState(newState)
+
+    // Programmer le retour à idle si nécessaire
+    if (duration) {
+      animationTimeoutRef.current = setTimeout(() => {
+        console.log('🎭 Auto return to idle from:', newState)
+        setAnimationState('idle')
+        animationTimeoutRef.current = null
+      }, duration)
+    }
+  }, [animationState])
+
+  // Analyser UNIQUEMENT les nouveaux messages
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
     
-    if (lastMessage && Date.now() - lastAnimationChange > 1000) {
+    if (lastMessage && lastMessage.id !== lastProcessedMessageIdRef.current) {
+      lastProcessedMessageIdRef.current = lastMessage.id
+      
       const newAnimationState = AnimationService.analyzeMessage(
         lastMessage.content, 
         lastMessage.role
       )
       
-      if (newAnimationState !== animationState) {
-        console.log('🎭 Animation change:', animationState, '->', newAnimationState, 'for message:', lastMessage.content)
-        setAnimationState(newAnimationState)
-        setLastAnimationChange(Date.now())
-        
-        // Pour les animations temporaires (hello, bye), retourner à idle après un délai
-        if (newAnimationState === 'hello' || newAnimationState === 'bye') {
-          setTimeout(() => {
-            if (Date.now() - lastAnimationChange >= 2800) { // Éviter conflits
-              setAnimationState('idle')
-              setLastAnimationChange(Date.now())
-            }
-          }, 3000)
-        }
-        
-        // Pour talking, revenir à idle après le message
-        if (newAnimationState === 'talking' && lastMessage.role === 'assistant') {
-          const messageLength = lastMessage.content.length
-          const duration = Math.max(2000, Math.min(messageLength * 50, 8000)) // 50ms par caractère, max 8s
-          setTimeout(() => {
-            if (Date.now() - lastAnimationChange >= duration - 200) { // Éviter conflits
-              setAnimationState('idle')
-              setLastAnimationChange(Date.now())
-            }
-          }, duration)
-        }
+      console.log('🎭 New message analysis:', lastMessage.content, '→', newAnimationState)
+      
+      // Durées spécifiques
+      let duration: number | undefined
+      if (newAnimationState === 'hello' || newAnimationState === 'bye') {
+        duration = 3000
+      } else if (newAnimationState === 'talking' && lastMessage.role === 'assistant') {
+        const messageLength = lastMessage.content.length
+        duration = Math.max(2000, Math.min(messageLength * 50, 8000))
+      }
+
+      changeAnimationSafely(newAnimationState, duration)
+    }
+  }, [messages, changeAnimationSafely])
+
+  // États de conversation prioritaires (sans dépendance cyclique)
+  useEffect(() => {
+    if (isRecording) {
+      changeAnimationSafely('listening')
+    } else if (isProcessing) {
+      changeAnimationSafely('thinking')
+    }
+  }, [isRecording, isProcessing, changeAnimationSafely])
+
+  // Nettoyer les timeouts à la fermeture
+  useEffect(() => {
+    return () => {
+      if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current)
       }
     }
-  }, [messages])
-
-  // Animation intelligence: états de conversation (recording, processing)
-  useEffect(() => {
-    const conversationState = AnimationService.analyzeConversationState(
-      isRecording,
-      isProcessing,
-      messages[messages.length - 1],
-      isConversationMode && messages.length === 0
-    )
-    
-    if (conversationState !== animationState && Date.now() - lastAnimationChange > 500) {
-      console.log('🎭 State animation change:', animationState, '->', conversationState)
-      setAnimationState(conversationState)
-      setLastAnimationChange(Date.now())
-    }
-  }, [isRecording, isProcessing, isConversationMode])
+  }, [])
 
   const loadData = async () => {
     try {
@@ -222,15 +238,8 @@ function MainContent() {
       setShowFullConversation(false)
       setIsProcessing(false)
       
-      // Animation d'au revoir (une seule fois)
-      if (animationState !== 'bye') {
-        setAnimationState('bye')
-        setLastAnimationChange(Date.now())
-        setTimeout(() => {
-          setAnimationState('idle')
-          setLastAnimationChange(Date.now())
-        }, 3000)
-      }
+      // Animation d'au revoir
+      changeAnimationSafely('bye', 3000)
       
       addMessage({ 
         role: 'system', 
@@ -249,15 +258,8 @@ function MainContent() {
       setShowChatBox(true)
       setShowFullConversation(true)
       
-      // Animation de salutation (une seule fois)
-      if (animationState !== 'hello') {
-        setAnimationState('hello')
-        setLastAnimationChange(Date.now())
-        setTimeout(() => {
-          setAnimationState('listening')
-          setLastAnimationChange(Date.now())
-        }, 2000)
-      }
+      // Animation de salutation
+      changeAnimationSafely('hello', 2000)
       
       const welcomeMessage = { 
         role: 'assistant' as const, 
