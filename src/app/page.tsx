@@ -8,7 +8,7 @@ import InfoBox from '@/components/InfoBox'
 import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
 import ChatBox from '@/components/ChatBox'
-import FullConversation from '@/components/FullConversation'
+import SimpleConversation from '@/components/SimpleConversation'
 import EmailDiagnostic from '@/components/EmailDiagnostic'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
 import { getUserContext } from '@/utils/userContext'
@@ -192,47 +192,6 @@ function MainContent() {
     }
   }, [audioAPI, isConversationMode, addMessage])
 
-  // Handle transcript from FullConversation component
-  const handleTranscript = (transcript: string) => {
-    console.log('📝 COMPLETE: Received transcript:', transcript)
-    const userMessage = { role: 'user' as const, content: transcript }
-    addMessage(userMessage)
-    
-    // Tracker le message utilisateur
-    if (currentSessionId) {
-      analyticsService.addMessage(currentSessionId, userMessage)
-    }
-    
-    // Update animation state
-    setAnimationState('thinking')
-  }
-
-  // Handle response from FullConversation component
-  const handleResponse = (response: string) => {
-    console.log('🤖 COMPLETE: Generated response:', response)
-    const assistantMessage = { role: 'assistant' as const, content: response }
-    addMessage(assistantMessage)
-    
-    // Tracker la réponse de l'assistant
-    if (currentSessionId) {
-      analyticsService.addMessage(currentSessionId, assistantMessage, response.length / 4) // Estimation token count
-    }
-    
-    // Update animation state
-    setAnimationState('talking')
-  }
-
-  // Handle errors from FullConversation component
-  const handleConversationError = (error: string) => {
-    console.error('❌ COMPLETE: Conversation error:', error)
-    setAnimationState('idle')
-    
-    addMessage({ 
-      role: 'system', 
-      content: `❌ Erreur: ${error}` 
-    })
-  }
-
   const handleCallClick = () => setShowAdvisorModal(true)
   const handleHelpClick = () => setShowHelpModal(true)
   const handleDiagnosticClick = () => setShowDiagnostic(true)
@@ -349,25 +308,19 @@ function MainContent() {
         isVisible={showChatBox}
       />
 
-      {/* Full Conversation Component */}
+      {/* Simple Conversation Component */}
       {showFullConversation && audioAPI && aiConfig && (
         <div className="fixed bottom-20 right-4 z-50">
-          <FullConversation
+          <SimpleConversation
             apiKey={aiConfig.llmApiKey}
             config={{
               agentName: aiConfig.agentName,
-              agentMission: aiConfig.agentMission,
-              agentPersonality: aiConfig.agentPersonality,
               llmModel: aiConfig.llmModel,
               temperature: aiConfig.temperature,
               sttLanguage: aiConfig.sttLanguage,
-              ttsVoice: aiConfig.ttsVoice,
-              ttsSpeed: aiConfig.ttsSpeed
+              ttsVoice: aiConfig.ttsVoice
             }}
             userContext={userContext}
-            onTranscript={handleTranscript}
-            onResponse={handleResponse}
-            onError={handleConversationError}
           />
         </div>
       )}
