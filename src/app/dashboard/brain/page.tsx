@@ -494,7 +494,7 @@ export default function BrainDashboard() {
       
       const insertData = {
         name: data.name,
-        api_key: data.apiKey || null,
+        api_key: data.apiKey || '',  // Use empty string instead of null
         description: data.description,
         api_url: data.apiUrl,
         active: data.active ?? true
