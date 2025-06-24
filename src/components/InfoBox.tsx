@@ -40,8 +40,8 @@ const InfoBox: React.FC<InfoBoxProps> = ({
 
   return (
     <div className="fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-50 
-                    max-w-[90vw] sm:max-w-[40vw] lg:max-w-[25vw] xl:max-w-[20vw] 
-                    max-h-[30vh] sm:max-h-[25vh] lg:max-h-[20vh]">
+                    max-w-[90vw] sm:max-w-[60vw] lg:max-w-[50vw] xl:max-w-[40vw] 
+                    max-h-[40vh] sm:max-h-[40vh] lg:max-h-[40vh]">
       <div className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-gray-200 overflow-hidden neo-minimal w-fit h-fit min-w-[180px] sm:min-w-[200px]">
         <div className="relative">
           {mediaUrl && (

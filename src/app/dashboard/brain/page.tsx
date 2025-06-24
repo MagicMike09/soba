@@ -472,18 +472,33 @@ export default function BrainDashboard() {
 
   const addAPITool = async (data: Partial<APITool>) => {
     try {
-      await supabase.from('api_tools').insert({
-        name: data.name!,
+      console.log('🔧 Adding API tool:', data)
+      
+      // Validation
+      if (!data.name || !data.apiUrl || !data.description) {
+        alert('⚠️ Veuillez remplir tous les champs requis (nom, URL, description)')
+        return
+      }
+      
+      const result = await supabase.from('api_tools').insert({
+        name: data.name,
         api_key: data.apiKey || null,
-        description: data.description!,
-        api_url: data.apiUrl!,
+        description: data.description,
+        api_url: data.apiUrl,
         active: data.active ?? true
       })
-      loadData()
+      
+      if (result.error) {
+        throw result.error
+      }
+      
+      console.log('✅ API tool added successfully')
+      await loadData()
       setShowModal(null)
+      alert('✅ Outil API ajouté avec succès')
     } catch (error) {
-      console.error('Error adding API tool:', error)
-      alert('Erreur lors de l\'ajout')
+      console.error('❌ Error adding API tool:', error)
+      alert(`❌ Erreur lors de l'ajout: ${error instanceof Error ? error.message : 'Erreur inconnue'}`)
     }
   }
 
