@@ -14,6 +14,8 @@ interface SimpleConversationProps {
     ttsVoice?: string
   }
   userContext?: unknown
+  onProcessingChange?: (isProcessing: boolean) => void
+  onSpeakingChange?: (isSpeaking: boolean) => void
 }
 
 interface Message {
@@ -24,7 +26,9 @@ interface Message {
 const SimpleConversation: React.FC<SimpleConversationProps> = ({ 
   apiKey, 
   config,
-  userContext
+  userContext,
+  onProcessingChange,
+  onSpeakingChange
 }) => {
   const [isActive, setIsActive] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -82,14 +86,18 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
     try {
       setCurrentStep('thinking')
       setIsProcessing(true)
+      onProcessingChange?.(true) // Notifier le parent: IA réfléchit
       
       const audioBlob = await recorder.stopRecording()
       
       if (audioBlob.size < 500) {
         setIsProcessing(false)
         setCurrentStep('idle')
+        onProcessingChange?.(false)
         return
       }
+      
+      console.log('🎬 Starting AI processing (thinking)')
       
       const result = await audioAPI.completeConversationFlow(
         audioBlob,
@@ -113,15 +121,23 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       setMessages(newMessages.slice(-6)) // Garder seulement les 6 derniers messages
       
       setCurrentStep('speaking')
-      await audioAPI.playAudioBuffer(result.audioBuffer)
-      
       setIsProcessing(false)
+      onProcessingChange?.(false) // Fin de la réflexion
+      onSpeakingChange?.(true) // Début de la parole
+      
+      console.log('🎬 AI speaking now')
+      await audioAPI.playAudioBuffer(result.audioBuffer)
+      console.log('🎬 AI finished speaking')
+      
       setCurrentStep('idle')
+      onSpeakingChange?.(false) // Fin de la parole
       
     } catch (error: unknown) {
       console.error('Erreur traitement:', error)
       setIsProcessing(false)
       setCurrentStep('idle')
+      onProcessingChange?.(false)
+      onSpeakingChange?.(false)
     }
   }
 

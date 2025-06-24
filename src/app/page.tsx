@@ -56,6 +56,7 @@ function MainContent() {
   
   // Animation states
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
 
   // Load data
   useEffect(() => {
@@ -128,12 +129,18 @@ function MainContent() {
   useEffect(() => {
     if (isRecording) {
       // Utilisateur parle → Avatar écoute (animation Idle)
+      console.log('🎬 User is speaking → idle animation')
       changeAnimationSafely('idle')
     } else if (isProcessing) {
       // IA réfléchit → Animation Think
+      console.log('🎬 AI is thinking → thinking animation')
       changeAnimationSafely('thinking')
+    } else if (isSpeaking) {
+      // IA parle → Animation Talk
+      console.log('🎬 AI is speaking → talking animation')
+      changeAnimationSafely('talking')
     }
-  }, [isRecording, isProcessing, changeAnimationSafely])
+  }, [isRecording, isProcessing, isSpeaking, changeAnimationSafely])
 
   // Nettoyer les timeouts à la fermeture
   useEffect(() => {
@@ -239,6 +246,7 @@ function MainContent() {
       setShowChatBox(false)
       setShowFullConversation(false)
       setIsProcessing(false)
+      setIsSpeaking(false)
       
       // Animation d'au revoir
       changeAnimationSafely('bye', 3000)
@@ -260,14 +268,39 @@ function MainContent() {
       setShowChatBox(true)
       setShowFullConversation(true)
       
-      // Animation de salutation puis retour à idle pour écouter
-      changeAnimationSafely('hello', 2000)
+      // Animation de salutation et TTS du message de bienvenue
+      changeAnimationSafely('hello', 3000)
       
       const welcomeMessage = { 
         role: 'assistant' as const, 
         content: 'Bonjour ! Je vous écoute, vous pouvez commencer à parler.' 
       }
       addMessage(welcomeMessage)
+      
+      // Jouer le message de bienvenue avec TTS et animations
+      if (audioAPI) {
+        setTimeout(async () => {
+          try {
+            console.log('🔊 Playing welcome message with TTS')
+            setIsSpeaking(true) // Déclencher animation talking
+            
+            // Générer l'audio pour le message de bienvenue
+            const audioBuffer = await audioAPI.textToSpeech(
+              welcomeMessage.content,
+              aiConfig?.ttsVoice || 'alloy'
+            )
+            if (audioBuffer) {
+              await audioAPI.playAudioBuffer(audioBuffer)
+              console.log('🔊 Welcome message TTS completed')
+            }
+            
+            setIsSpeaking(false) // Fin de l'animation talking
+          } catch (error) {
+            console.error('❌ Error playing welcome TTS:', error)
+            setIsSpeaking(false)
+          }
+        }, 1000) // Délai pour laisser l'animation hello se terminer
+      }
       
       // Tracker le message de bienvenue
       if (sessionId) {
@@ -405,6 +438,14 @@ function MainContent() {
               ttsVoice: aiConfig.ttsVoice
             }}
             userContext={userContext}
+            onProcessingChange={(processing) => {
+              console.log('🎬 Processing state changed:', processing)
+              setIsProcessing(processing)
+            }}
+            onSpeakingChange={(speaking) => {
+              console.log('🎬 Speaking state changed:', speaking)
+              setIsSpeaking(speaking)
+            }}
           />
         </div>
       )}
