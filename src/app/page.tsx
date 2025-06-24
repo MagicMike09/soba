@@ -310,7 +310,7 @@ function MainContent() {
 
       {/* Simple Conversation Component */}
       {showFullConversation && audioAPI && aiConfig && (
-        <div className="fixed bottom-20 right-4 z-50">
+        <div className="fixed bottom-16 right-2 sm:bottom-20 sm:right-4 z-50">
           <SimpleConversation
             apiKey={aiConfig.llmApiKey}
             config={{

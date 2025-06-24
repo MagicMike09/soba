@@ -39,34 +39,39 @@ const InfoBox: React.FC<InfoBoxProps> = ({
   const detectedMediaType = getMediaType()
 
   return (
-    <div className="fixed bottom-8 left-8 max-w-lg z-50">
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200 overflow-hidden neo-minimal">
+    <div className="fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-50 
+                    max-w-[90vw] sm:max-w-[40vw] lg:max-w-[25vw] xl:max-w-[20vw] 
+                    max-h-[30vh] sm:max-h-[25vh] lg:max-h-[20vh]">
+      <div className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-gray-200 overflow-hidden neo-minimal w-fit h-fit min-w-[180px] sm:min-w-[200px]">
         <div className="relative">
           {mediaUrl && (
-            <div className="w-full h-64 bg-gray-100 relative">
+            <div className="w-full bg-gray-100 relative" style={{ maxHeight: content ? '40%' : '100%' }}>
               {detectedMediaType === 'image' && !imageError ? (
-                <Image
-                  src={mediaUrl}
-                  alt="Info content"
-                  fill
-                  className="object-cover"
-                  onError={() => setImageError(true)}
-                  priority
-                />
+                <div className="relative w-full h-auto max-h-24 sm:max-h-32">
+                  <Image
+                    src={mediaUrl}
+                    alt="Info content"
+                    width={300}
+                    height={128}
+                    className="object-cover w-full h-auto max-h-24 sm:max-h-32"
+                    onError={() => setImageError(true)}
+                    priority
+                  />
+                </div>
               ) : detectedMediaType === 'video' && !videoError ? (
                 <video
                   src={mediaUrl}
                   controls
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto max-h-24 sm:max-h-32 object-cover"
                   onError={() => setVideoError(true)}
                 >
                   Votre navigateur ne supporte pas la lecture vidéo.
                 </video>
               ) : (
-                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                <div className="bg-gray-200 flex items-center justify-center h-16 sm:h-20">
                   <div className="text-center">
-                    <div className="text-gray-400 text-3xl mb-2">🖼️</div>
-                    <span className="text-gray-500 text-sm">
+                    <div className="text-gray-400 text-lg sm:text-xl mb-1">🖼️</div>
+                    <span className="text-gray-500 text-xs">
                       {imageError || videoError ? 'Média non disponible' : 'Chargement...'}
                     </span>
                   </div>
@@ -77,9 +82,9 @@ const InfoBox: React.FC<InfoBoxProps> = ({
         </div>
 
         {content && (
-          <div className="p-8">
+          <div className="p-3 sm:p-4 max-h-[18vh] sm:max-h-[15vh] lg:max-h-[12vh] overflow-y-auto">
             <div 
-              className="text-gray-800 text-base leading-relaxed"
+              className="text-gray-800 text-xs sm:text-sm leading-relaxed"
               dangerouslySetInnerHTML={{ __html: content }}
             />
           </div>

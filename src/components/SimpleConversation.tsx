@@ -150,27 +150,27 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
   const status = getStatusDisplay()
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-lg max-w-md mx-auto">
-      <h3 className="text-lg font-bold mb-3 text-center text-gray-800">
+    <div className="bg-white p-3 sm:p-4 rounded-lg shadow-lg w-72 sm:w-80 md:max-w-md">
+      <h3 className="text-base sm:text-lg font-bold mb-2 sm:mb-3 text-center text-gray-800">
         💬 Conversation
       </h3>
       
-      <div className={`text-center mb-4 p-2 rounded ${status.color}`}>
-        <div className="font-medium">{status.text}</div>
+      <div className={`text-center mb-3 sm:mb-4 p-2 rounded ${status.color}`}>
+        <div className="font-medium text-sm sm:text-base">{status.text}</div>
       </div>
       
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-3 sm:mb-4">
         {!isActive ? (
           <button
             onClick={startConversation}
-            className="flex-1 px-4 py-2 bg-green-500 text-white rounded font-medium hover:bg-green-600"
+            className="flex-1 px-3 sm:px-4 py-2 bg-green-500 text-white rounded text-sm sm:text-base font-medium hover:bg-green-600 transition-colors"
           >
             🚀 Démarrer
           </button>
         ) : (
           <button
             onClick={stopConversation}
-            className="flex-1 px-4 py-2 bg-red-500 text-white rounded font-medium hover:bg-red-600"
+            className="flex-1 px-3 sm:px-4 py-2 bg-red-500 text-white rounded text-sm sm:text-base font-medium hover:bg-red-600 transition-colors"
           >
             🛑 Arrêter
           </button>
@@ -178,12 +178,13 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       </div>
       
       {messages.length > 0 && (
-        <div className="max-h-32 overflow-y-auto bg-gray-50 rounded p-2">
+        <div className="max-h-24 sm:max-h-32 overflow-y-auto bg-gray-50 rounded p-2">
           {messages.slice(-4).map((msg, index) => (
-            <div key={index} className={`text-sm mb-1 p-1 rounded ${
+            <div key={index} className={`text-xs sm:text-sm mb-1 p-1 rounded ${
               msg.role === 'user' ? 'bg-blue-100' : 'bg-green-100'
             }`}>
-              <strong>{msg.role === 'user' ? '👤' : '🤖'}:</strong> {msg.content}
+              <strong>{msg.role === 'user' ? '👤' : '🤖'}:</strong> 
+              <span className="ml-1 break-words">{msg.content}</span>
             </div>
           ))}
         </div>

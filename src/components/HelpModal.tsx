@@ -37,23 +37,23 @@ const HelpModal: React.FC<HelpModalProps> = ({
   `
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="p-8 border-b border-gray-200">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-hidden">
+        <div className="p-4 sm:p-8 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               Guide d&apos;utilisation
             </h2>
             <button
               onClick={onClose}
-              className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors text-lg sm:text-xl"
             >
               ×
             </button>
           </div>
         </div>
 
-        <div className="p-8 overflow-y-auto max-h-96">
+        <div className="p-4 sm:p-8 overflow-y-auto max-h-64 sm:max-h-96">
           <div 
             className="prose prose-sm max-w-none text-gray-700"
             dangerouslySetInnerHTML={{ __html: helpText || defaultHelpText }}
@@ -63,10 +63,10 @@ const HelpModal: React.FC<HelpModalProps> = ({
           />
         </div>
 
-        <div className="p-8 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 sm:p-8 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
-            className="w-full py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+            className="w-full py-2 sm:py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm sm:text-base"
           >
             Fermer
           </button>
