@@ -473,6 +473,7 @@ export default function BrainDashboard() {
   const addAPITool = async (data: Partial<APITool>) => {
     try {
       console.log('🔧 Adding API tool:', data)
+      console.log('🔧 Supabase client:', supabase)
       
       // Validation
       if (!data.name || !data.apiUrl || !data.description) {
@@ -480,15 +481,33 @@ export default function BrainDashboard() {
         return
       }
       
-      const result = await supabase.from('api_tools').insert({
+      // Test connection to Supabase first
+      console.log('🔧 Testing Supabase connection...')
+      const testResult = await supabase.from('api_tools').select('id').limit(1)
+      console.log('🔧 Test result:', testResult)
+      
+      if (testResult.error) {
+        console.error('❌ Supabase connection error:', testResult.error)
+        alert(`❌ Erreur de connexion à la base de données: ${testResult.error.message}`)
+        return
+      }
+      
+      const insertData = {
         name: data.name,
         api_key: data.apiKey || null,
         description: data.description,
         api_url: data.apiUrl,
         active: data.active ?? true
-      })
+      }
+      
+      console.log('🔧 Insert data:', insertData)
+      
+      const result = await supabase.from('api_tools').insert(insertData)
+      
+      console.log('🔧 Insert result:', result)
       
       if (result.error) {
+        console.error('❌ Insert error:', result.error)
         throw result.error
       }
       
@@ -498,7 +517,16 @@ export default function BrainDashboard() {
       alert('✅ Outil API ajouté avec succès')
     } catch (error) {
       console.error('❌ Error adding API tool:', error)
-      alert(`❌ Erreur lors de l'ajout: ${error instanceof Error ? error.message : 'Erreur inconnue'}`)
+      console.error('❌ Error details:', JSON.stringify(error, null, 2))
+      
+      let errorMessage = 'Erreur inconnue'
+      if (error instanceof Error) {
+        errorMessage = error.message
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = JSON.stringify(error)
+      }
+      
+      alert(`❌ Erreur lors de l'ajout: ${errorMessage}`)
     }
   }
 
