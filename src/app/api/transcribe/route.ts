@@ -47,14 +47,23 @@ export async function POST(request: NextRequest) {
       file: audioFileForAPI,
       model: "whisper-1",
       language: language === 'auto' ? undefined : language,
-      response_format: "text",
+      response_format: "verbose_json", // Plus de détails pour debugging
+      temperature: 0.0, // Plus déterministe
+      prompt: "Transcription en français. Ponctuation correcte. Éviter les hallucinations."
     })
     
-    console.log('✅ STT API: Transcription completed:', transcription.substring(0, 100) + '...')
+    console.log('✅ STT API: Transcription completed:', {
+      text: transcription.text?.substring(0, 100) + '...',
+      duration: transcription.duration,
+      language: transcription.language,
+      confidence: transcription.segments?.[0]?.avg_logprob
+    })
     
     return NextResponse.json({
-      transcript: transcription,
-      language: language,
+      transcript: transcription.text || transcription,
+      language: transcription.language || language,
+      duration: transcription.duration,
+      confidence: transcription.segments?.[0]?.avg_logprob,
       success: true
     })
     

@@ -66,9 +66,9 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       setCurrentStep('listening')
       
       await recorder.startRecording({
-        silenceThreshold: -40,
-        silenceTimeout: 1500,
-        maxRecordingTime: 15000,
+        silenceThreshold: -45, // Plus sensible au silence
+        silenceTimeout: 2000,  // Attendre 2s de silence
+        maxRecordingTime: 20000, // 20 secondes max
         onSilenceDetected: () => {
           if (recorder.isRecording()) {
             processRecording()
@@ -90,12 +90,16 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       
       const audioBlob = await recorder.stopRecording()
       
-      if (audioBlob.size < 500) {
+      // Vérification taille minimale plus stricte pour éviter transcriptions vides
+      if (audioBlob.size < 2000) { // 2KB minimum
+        console.log('🎤 Audio trop court, ignoré. Taille:', audioBlob.size, 'bytes')
         setIsProcessing(false)
         setCurrentStep('idle')
         onProcessingChange?.(false)
         return
       }
+      
+      console.log('🎤 Audio blob ready for STT. Size:', audioBlob.size, 'bytes, Type:', audioBlob.type)
       
       console.log('🎬 Starting AI processing (thinking)')
       
