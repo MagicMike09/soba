@@ -474,7 +474,7 @@ export default function BrainDashboard() {
     try {
       await supabase.from('api_tools').insert({
         name: data.name!,
-        api_key: data.apiKey!,
+        api_key: data.apiKey || null,
         description: data.description!,
         api_url: data.apiUrl!,
         active: data.active ?? true
@@ -498,6 +498,56 @@ export default function BrainDashboard() {
     } catch (error) {
       console.error('Error adding pronunciation:', error)
       alert('Erreur lors de l\'ajout')
+    }
+  }
+
+  const uploadPronunciationsList = async (file: File) => {
+    try {
+      const text = await file.text()
+      let pronunciations: Array<{word: string, pronunciation: string}> = []
+      
+      if (file.name.endsWith('.json')) {
+        pronunciations = JSON.parse(text)
+      } else if (file.name.endsWith('.csv')) {
+        const lines = text.split('\n').filter(line => line.trim())
+        pronunciations = lines.map(line => {
+          const [word, pronunciation] = line.split(',').map(s => s.trim())
+          return { word, pronunciation }
+        }).filter(p => p.word && p.pronunciation)
+      } else if (file.name.endsWith('.txt')) {
+        const lines = text.split('\n').filter(line => line.trim())
+        pronunciations = lines.map(line => {
+          const parts = line.split('|').map(s => s.trim())
+          if (parts.length >= 2) {
+            return { word: parts[0], pronunciation: parts[1] }
+          }
+          const spaceParts = line.split(/\s+/)
+          if (spaceParts.length >= 2) {
+            return { word: spaceParts[0], pronunciation: spaceParts.slice(1).join(' ') }
+          }
+          return null
+        }).filter((p): p is {word: string, pronunciation: string} => p !== null)
+      }
+
+      if (pronunciations.length === 0) {
+        throw new Error('Aucune prononciation valide trouvée dans le fichier')
+      }
+
+      const batchSize = 100
+      for (let i = 0; i < pronunciations.length; i += batchSize) {
+        const batch = pronunciations.slice(i, i + batchSize)
+        await supabase.from('pronunciations').insert(batch.map(p => ({
+          word: p.word,
+          pronunciation: p.pronunciation
+        })))
+      }
+
+      alert(`✅ ${pronunciations.length} prononciations importées avec succès !`)
+      loadData()
+      setShowModal(null)
+    } catch (error) {
+      console.error('Error uploading pronunciations:', error)
+      alert(`❌ Erreur lors de l'import: ${error instanceof Error ? error.message : 'Erreur inconnue'}`)
     }
   }
 
@@ -1302,12 +1352,30 @@ export default function BrainDashboard() {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Prononciations</h2>
-                <button
-                  onClick={() => setShowModal('pronunciation')}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Ajouter Prononciation
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowModal('pronunciation')}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Ajouter Prononciation
+                  </button>
+                  <button
+                    onClick={() => setShowModal('upload-pronunciations')}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    📁 Importer Liste
+                  </button>
+                </div>
+              </div>
+
+              {/* Format Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="font-medium text-blue-800 mb-2">📋 Formats supportés pour l'import :</h3>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p><strong>CSV :</strong> mot,prononciation</p>
+                  <p><strong>TXT :</strong> mot|prononciation ou mot prononciation</p>
+                  <p><strong>JSON :</strong> [{`"word": "mot", "pronunciation": "prononciation"`}]</p>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1326,6 +1394,13 @@ export default function BrainDashboard() {
                   </div>
                 ))}
               </div>
+              
+              {pronunciations.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <p>Aucune prononciation configurée</p>
+                  <p className="text-sm mt-1">Ajoutez des prononciations pour améliorer la synthèse vocale</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1339,6 +1414,7 @@ export default function BrainDashboard() {
                 {showModal === 'rss' && 'Ajouter Flux RSS'}
                 {showModal === 'api' && 'Ajouter Outil API'}
                 {showModal === 'pronunciation' && 'Ajouter Prononciation'}
+                {showModal === 'upload-pronunciations' && 'Importer Liste de Prononciations'}
               </h3>
               
               <form onSubmit={(e) => {
@@ -1422,7 +1498,7 @@ export default function BrainDashboard() {
                   {showModal === 'api' && (
                     <>
                       <input name="name" placeholder="Nom de l'API" required className="w-full p-3 border border-gray-300 rounded-lg" />
-                      <input name="apiKey" placeholder="Clé API" required className="w-full p-3 border border-gray-300 rounded-lg" />
+                      <input name="apiKey" placeholder="Clé API (optionnelle)" className="w-full p-3 border border-gray-300 rounded-lg" />
                       <input name="apiUrl" placeholder="URL de l'API" required className="w-full p-3 border border-gray-300 rounded-lg" />
                       <textarea name="description" placeholder="Description de l'API" required rows={3} className="w-full p-3 border border-gray-300 rounded-lg resize-none" />
                       <label className="flex items-center space-x-2">
@@ -1438,23 +1514,76 @@ export default function BrainDashboard() {
                       <input name="pronunciation" placeholder="Prononciation phonétique" required className="w-full p-3 border border-gray-300 rounded-lg" />
                     </>
                   )}
+
+                  {showModal === 'upload-pronunciations' && (
+                    <>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <input
+                          type="file"
+                          accept=".csv,.txt,.json"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              uploadPronunciationsList(file)
+                            }
+                          }}
+                          className="hidden"
+                          id="pronunciations-file"
+                        />
+                        <label htmlFor="pronunciations-file" className="cursor-pointer">
+                          <div className="text-gray-400 mb-2">
+                            <svg className="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            <span className="text-blue-600 font-medium">Cliquez pour choisir</span> un fichier
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">CSV, TXT ou JSON</p>
+                        </label>
+                      </div>
+                      
+                      <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-600">
+                        <h4 className="font-medium mb-2">Exemples de formats :</h4>
+                        <div className="space-y-1 text-xs">
+                          <p><strong>CSV :</strong> mot,prononciation</p>
+                          <p><strong>TXT :</strong> mot|prononciation ou mot prononciation</p>
+                          <p><strong>JSON :</strong> [{`"word": "mot", "pronunciation": "prononciation"`}]</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
                 
-                <div className="flex space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(null)}
-                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Ajouter
-                  </button>
-                </div>
+                {showModal !== 'upload-pronunciations' && (
+                  <div className="flex space-x-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(null)}
+                      className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                )}
+
+                {showModal === 'upload-pronunciations' && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(null)}
+                      className="bg-gray-300 text-gray-700 py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           </div>
