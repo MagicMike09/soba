@@ -57,7 +57,7 @@ const AdvisorModal: React.FC<AdvisorModalProps> = ({
         </div>
 
         <div className="p-4 sm:p-8 overflow-y-auto max-h-64 sm:max-h-96">
-          {advisors.length === 0 ? (
+          {advisors.filter(advisor => advisor.isAvailable).length === 0 ? (
             <div className="text-center py-12">
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
                 <span className="text-gray-400 text-xl sm:text-2xl">👥</span>
@@ -66,7 +66,7 @@ const AdvisorModal: React.FC<AdvisorModalProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              {advisors.map((advisor) => (
+              {advisors.filter(advisor => advisor.isAvailable).map((advisor) => (
                 <div
                   key={advisor.id}
                   className="p-4 sm:p-6 border border-gray-200 rounded-lg sm:rounded-xl hover:border-gray-300 hover:shadow-md transition-all cursor-pointer neo-minimal"
@@ -94,9 +94,6 @@ const AdvisorModal: React.FC<AdvisorModalProps> = ({
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-600 truncate">
                         {advisor.position}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 truncate">
-                        {advisor.email}
                       </p>
                     </div>
                   </div>
