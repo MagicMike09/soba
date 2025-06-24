@@ -88,7 +88,10 @@ function MainContent() {
         // Pour les animations temporaires (hello, bye), retourner à idle après un délai
         if (newAnimationState === 'hello' || newAnimationState === 'bye') {
           setTimeout(() => {
-            setAnimationState('idle')
+            if (Date.now() - lastAnimationChange >= 2800) { // Éviter conflits
+              setAnimationState('idle')
+              setLastAnimationChange(Date.now())
+            }
           }, 3000)
         }
         
@@ -97,12 +100,15 @@ function MainContent() {
           const messageLength = lastMessage.content.length
           const duration = Math.max(2000, Math.min(messageLength * 50, 8000)) // 50ms par caractère, max 8s
           setTimeout(() => {
-            setAnimationState('idle')
+            if (Date.now() - lastAnimationChange >= duration - 200) { // Éviter conflits
+              setAnimationState('idle')
+              setLastAnimationChange(Date.now())
+            }
           }, duration)
         }
       }
     }
-  }, [messages, animationState, lastAnimationChange])
+  }, [messages])
 
   // Animation intelligence: états de conversation (recording, processing)
   useEffect(() => {
@@ -118,7 +124,7 @@ function MainContent() {
       setAnimationState(conversationState)
       setLastAnimationChange(Date.now())
     }
-  }, [isRecording, isProcessing, isConversationMode, animationState, lastAnimationChange, messages])
+  }, [isRecording, isProcessing, isConversationMode])
 
   const loadData = async () => {
     try {
@@ -216,9 +222,15 @@ function MainContent() {
       setShowFullConversation(false)
       setIsProcessing(false)
       
-      // Animation d'au revoir
-      setAnimationState('bye')
-      setTimeout(() => setAnimationState('idle'), 3000)
+      // Animation d'au revoir (une seule fois)
+      if (animationState !== 'bye') {
+        setAnimationState('bye')
+        setLastAnimationChange(Date.now())
+        setTimeout(() => {
+          setAnimationState('idle')
+          setLastAnimationChange(Date.now())
+        }, 3000)
+      }
       
       addMessage({ 
         role: 'system', 
@@ -237,9 +249,15 @@ function MainContent() {
       setShowChatBox(true)
       setShowFullConversation(true)
       
-      // Animation de salutation
-      setAnimationState('hello')
-      setTimeout(() => setAnimationState('listening'), 2000)
+      // Animation de salutation (une seule fois)
+      if (animationState !== 'hello') {
+        setAnimationState('hello')
+        setLastAnimationChange(Date.now())
+        setTimeout(() => {
+          setAnimationState('listening')
+          setLastAnimationChange(Date.now())
+        }, 2000)
+      }
       
       const welcomeMessage = { 
         role: 'assistant' as const, 
