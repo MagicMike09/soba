@@ -68,9 +68,9 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       setCurrentStep('listening')
       
       await recorder.startRecording({
-        silenceThreshold: -35, // Moins sensible = détecte mieux la vraie parole
-        silenceTimeout: 3000,  // 3 secondes pour bien finir la phrase
-        maxRecordingTime: 30000, // 30 secondes max
+        silenceThreshold: -45, // Plus sensible pour détecter voix faible
+        silenceTimeout: 2000,  // 2 secondes de silence pour déclencher
+        maxRecordingTime: 20000, // 20 secondes max
         onSilenceDetected: () => {
           if (recorder.isRecording()) {
             processRecording()

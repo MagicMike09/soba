@@ -20,23 +20,23 @@ export class EnhancedAudioRecorder {
     try {
       console.log('🎤 EnhancedAudioRecorder: Initializing...')
       
-      // Configuration audio optimisée pour STT - plus conservatrice mais fiable
+      // Configuration audio optimisée pour meilleure détection vocale
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: false, // Désactiver pour garder la vraie voix
-          noiseSuppression: false, // Désactiver car peut dégrader la voix
+          echoCancellation: true,  // Réactiver pour nettoyer l'audio
+          noiseSuppression: true,  // Réactiver pour éliminer bruit de fond
           autoGainControl: true,   // Garder pour normaliser le volume
-          sampleRate: 16000,       // 16kHz optimal pour Whisper
+          sampleRate: 44100,       // Fréquence plus élevée pour meilleure détection
           channelCount: 1          // Mono pour STT
         } 
       })
       
       // Setup audio analysis pour détection de silence
-      this.audioContext = new AudioContext({ sampleRate: 16000 })
+      this.audioContext = new AudioContext({ sampleRate: 44100 })
       const source = this.audioContext.createMediaStreamSource(this.stream)
       this.analyser = this.audioContext.createAnalyser()
-      this.analyser.fftSize = 2048 // Équilibré entre performance et précision
-      this.analyser.smoothingTimeConstant = 0.3 // Moins lisse = plus réactif
+      this.analyser.fftSize = 4096 // Plus de résolution pour meilleure détection vocale
+      this.analyser.smoothingTimeConstant = 0.1 // Plus réactif pour détecter rapidement
       source.connect(this.analyser)
       
       this.isInitialized = true
@@ -76,7 +76,7 @@ export class EnhancedAudioRecorder {
         
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
-        audioBitsPerSecond: 128000 // Qualité optimale sans surcharge
+        audioBitsPerSecond: 256000 // Plus haute qualité pour meilleure détection
       })
       
       this.mediaRecorder.ondataavailable = (event) => {
@@ -139,12 +139,20 @@ export class EnhancedAudioRecorder {
       const average = sum / bufferLength
       const decibels = average > 0 ? 20 * Math.log10(average / 255) : -100
       
-      // Amélioration: considérer aussi la présence de pics fréquentiels
-      const hasSpeech = decibels > silenceThreshold && peakCount > bufferLength * 0.1
+      // Détection plus sensible: réduire le seuil de pics requis
+      const hasSpeech = decibels > silenceThreshold || peakCount > bufferLength * 0.05
+      
+      // Logging détaillé pour debug
+      if (Math.random() < 0.1) { // Log 10% du temps pour éviter spam
+        console.log(`🎤 Audio Level: ${decibels.toFixed(1)}dB, Peaks: ${peakCount}, Threshold: ${silenceThreshold}dB, Speech: ${hasSpeech}`)
+      }
       
       if (hasSpeech) {
         // Son significatif détecté
         this.lastSoundTime = Date.now()
+        if (Math.random() < 0.2) { // Log parfois quand parole détectée
+          console.log('🗣️ Speech detected!')
+        }
       } else {
         // Vérifier si le silence dure assez longtemps
         const silenceDuration = Date.now() - this.lastSoundTime
