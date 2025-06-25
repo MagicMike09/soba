@@ -58,9 +58,9 @@ const SimpleConversation: React.FC<SimpleConversationProps> = ({
 
   const buildSystemPrompt = (): string => {
     return `Tu es ${config.agentName || 'un assistant virtuel'}. 
-Tu aides les utilisateurs avec leurs questions de manière naturelle et conversationnelle.
-Tu réponds de manière concise (1-2 phrases) et professionnelle.
-Tu utilises les informations de notre base de connaissances pour répondre précisément.`
+Tu réponds de manière TRÈS concise (maximum 1-2 phrases courtes).
+Sois direct, naturel et conversationnel. Évite les longs développements.
+Utilise les informations disponibles pour donner des réponses précises et rapides.`
   }
 
   const startListening = async () => {
@@ -68,9 +68,9 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
       setCurrentStep('listening')
       
       await recorder.startRecording({
-        silenceThreshold: -45, // Plus sensible pour détecter voix faible
-        silenceTimeout: 2000,  // 2 secondes de silence pour déclencher
-        maxRecordingTime: 20000, // 20 secondes max
+        silenceThreshold: -40, // Équilibré: pas trop sensible au bruit ambiant
+        silenceTimeout: 1500,  // 1.5 secondes de silence pour déclencher
+        maxRecordingTime: 15000, // 15 secondes max pour réduire latence
         onSilenceDetected: () => {
           if (recorder.isRecording()) {
             processRecording()
@@ -127,8 +127,8 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
         newMessages,
         buildSystemPrompt(),
         userContext,
-        config.llmModel || 'gpt-3.5-turbo',
-        config.temperature || 0.1
+        config.llmModel || 'gpt-3.5-turbo', // Utiliser le modèle le plus rapide
+        config.temperature || 0.3 // Légèrement moins déterministe mais plus rapide
       )
       
       console.log('✅ LLM terminé. Response:', response.substring(0, 100) + '...')
@@ -183,8 +183,8 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
     onSpeakingChange?.(true)
     
     try {
-      // Message de bienvenue avec TTS
-      const welcomeMessage = `Bonjour! Je suis ${config.agentName || 'votre assistant virtuel'}. Comment puis-je vous aider aujourd'hui?`
+      // Message de bienvenue avec TTS (plus court pour réduire latence)
+      const welcomeMessage = `Bonjour! Je vous écoute.`
       console.log('🎬 Playing welcome message with TTS')
       
       const audioBuffer = await audioAPI.textToSpeech(welcomeMessage, config.ttsVoice || 'alloy')

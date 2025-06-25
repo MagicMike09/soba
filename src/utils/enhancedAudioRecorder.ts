@@ -126,25 +126,30 @@ export class EnhancedAudioRecorder {
       const dataArray = new Uint8Array(bufferLength)
       this.analyser.getByteFrequencyData(dataArray)
       
-      // Calculer le niveau audio moyen (méthode améliorée)
+      // Calculer le niveau audio avec détection intelligente de parole
       let sum = 0
       let peakCount = 0
+      let strongPeakCount = 0
+      
       for (let i = 0; i < bufferLength; i++) {
         if (dataArray[i] > 0) {
           sum += dataArray[i]
-          if (dataArray[i] > 50) peakCount++ // Seuil pour détecter vraie parole
+          if (dataArray[i] > 40) peakCount++ // Seuil modéré pour activité audio
+          if (dataArray[i] > 80) strongPeakCount++ // Seuil élevé pour vraie parole
         }
       }
       
       const average = sum / bufferLength
       const decibels = average > 0 ? 20 * Math.log10(average / 255) : -100
       
-      // Détection plus sensible: réduire le seuil de pics requis
-      const hasSpeech = decibels > silenceThreshold || peakCount > bufferLength * 0.05
+      // Détection intelligente: nécessite à la fois niveau ET pics significatifs
+      const hasAudioActivity = decibels > silenceThreshold
+      const hasSpeechPeaks = strongPeakCount > bufferLength * 0.02 // 2% de pics forts requis
+      const hasSpeech = hasAudioActivity && hasSpeechPeaks
       
       // Logging détaillé pour debug
       if (Math.random() < 0.1) { // Log 10% du temps pour éviter spam
-        console.log(`🎤 Audio Level: ${decibels.toFixed(1)}dB, Peaks: ${peakCount}, Threshold: ${silenceThreshold}dB, Speech: ${hasSpeech}`)
+        console.log(`🎤 Level: ${decibels.toFixed(1)}dB, Peaks: ${peakCount}, Strong: ${strongPeakCount}, Threshold: ${silenceThreshold}dB, Speech: ${hasSpeech}`)
       }
       
       if (hasSpeech) {
