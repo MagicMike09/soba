@@ -46,14 +46,21 @@ const SimpleConversation: React.FC<SimpleConversationProps> = ({
 
   useEffect(() => {
     if (isActive && currentStep === 'idle' && !isProcessing) {
-      console.log('🔄 Redémarrage automatique de l\'écoute...')
+      console.log('🔄 Redémarrage automatique de l\'écoute - state:', { isActive, currentStep, isProcessing })
       const timer = setTimeout(() => {
+        console.log('🔄 Timer triggered - checking state again...')
         if (isActive && currentStep === 'idle' && !isProcessing) {
+          console.log('🎤 Starting listening from useEffect')
           startListening()
+        } else {
+          console.log('🚫 Conditions not met for auto restart:', { isActive, currentStep, isProcessing })
         }
-      }, 500) // Plus de délai pour stabilité
+      }, 300)
       
-      return () => clearTimeout(timer)
+      return () => {
+        console.log('🧹 Cleaning up auto-restart timer')
+        clearTimeout(timer)
+      }
     }
   }, [isActive, currentStep, isProcessing])
 
@@ -175,9 +182,9 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       
       // Force le redémarrage de l'écoute après un délai
       setTimeout(() => {
-        if (isActive && currentStep === 'idle') {
-          console.log('🔄 Force restart listening after response')
-          setCurrentStep('idle') // Trigger useEffect
+        console.log('🔄 Force restart listening after response - isActive:', isActive)
+        if (isActive) {
+          startListening() // Redémarrer directement l'écoute
         }
       }, 1000)
       
@@ -187,6 +194,14 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       setCurrentStep('idle')
       onProcessingChange?.(false)
       onSpeakingChange?.(false)
+      
+      // Redémarrer l'écoute même en cas d'erreur
+      setTimeout(() => {
+        console.log('🔄 Restart listening after error - isActive:', isActive)
+        if (isActive) {
+          startListening()
+        }
+      }, 2000)
     }
   }
 
