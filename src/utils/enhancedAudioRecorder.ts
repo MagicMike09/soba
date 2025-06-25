@@ -67,12 +67,18 @@ export class EnhancedAudioRecorder {
       
       this.audioChunks = []
       
-      // Configuration MediaRecorder optimisée
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/mp4') 
-        ? 'audio/mp4'
-        : 'audio/webm'
+      // Configuration MediaRecorder pour compatibilité Whisper
+      let mimeType = 'audio/webm'
+      
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4'
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus'
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mimeType = 'audio/webm'
+      }
+      
+      console.log('🎙️ Using MIME type:', mimeType)
         
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,

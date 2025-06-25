@@ -29,18 +29,58 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    
+    // Validate file size (OpenAI limit is 25MB)
+    if (audioFile.size > 25 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: 'Fichier audio trop volumineux (max 25MB)' },
+        { status: 400 }
+      )
+    }
+    
+    // Validate file is not empty
+    if (audioFile.size < 1000) {
+      return NextResponse.json(
+        { error: 'Fichier audio trop petit' },
+        { status: 400 }
+      )
+    }
 
     const openai = getOpenAIClient(apiKey)
     
     console.log('🎙️ STT API: Processing audio file:', audioFile.name, 'Size:', audioFile.size)
     
-    // Convert File to format compatible with OpenAI
+    // Convert File to format compatible with OpenAI Whisper
     const audioBuffer = await audioFile.arrayBuffer()
-    const audioBlob = new Blob([audioBuffer], { type: audioFile.type })
     
-    // Create a File object with proper name and extension
-    const audioFileForAPI = new File([audioBlob], 'audio.webm', { 
-      type: audioFile.type 
+    // Ensure proper MIME type for Whisper compatibility
+    let mimeType = audioFile.type
+    let fileName = 'audio.webm'
+    
+    if (audioFile.type.includes('webm')) {
+      mimeType = 'audio/webm'
+      fileName = 'audio.webm'
+    } else if (audioFile.type.includes('mp4')) {
+      mimeType = 'audio/mp4'
+      fileName = 'audio.mp4'
+    } else if (audioFile.type.includes('wav')) {
+      mimeType = 'audio/wav'
+      fileName = 'audio.wav'
+    } else {
+      // Force WebM for compatibility
+      mimeType = 'audio/webm'
+      fileName = 'audio.webm'
+    }
+    
+    console.log('🎙️ Audio conversion:', { 
+      originalType: audioFile.type, 
+      finalType: mimeType, 
+      fileName, 
+      size: audioBuffer.byteLength 
+    })
+    
+    const audioFileForAPI = new File([audioBuffer], fileName, { 
+      type: mimeType 
     })
     
     const transcription = await openai.audio.transcriptions.create({
