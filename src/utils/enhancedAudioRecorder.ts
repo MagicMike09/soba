@@ -20,23 +20,23 @@ export class EnhancedAudioRecorder {
     try {
       console.log('🎤 EnhancedAudioRecorder: Initializing...')
       
-      // Configuration audio optimisée pour précision maximale STT
+      // Configuration audio simple et robuste pour STT
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: true,   // Nettoyer l'audio
-          noiseSuppression: false,  // Désactiver pour préserver la voix naturelle
-          autoGainControl: true,    // Normaliser le volume
-          sampleRate: 48000,        // Haute qualité pour précision
-          channelCount: 1           // Mono pour STT
+          echoCancellation: false,  // Désactiver toutes les modifications
+          noiseSuppression: false,  // Audio brut
+          autoGainControl: false,   // Pas de modification automatique
+          sampleRate: 44100,        // Standard audio
+          channelCount: 1           // Mono
         } 
       })
       
       // Setup audio analysis pour détection de silence
-      this.audioContext = new AudioContext({ sampleRate: 48000 })
+      this.audioContext = new AudioContext({ sampleRate: 44100 })
       const source = this.audioContext.createMediaStreamSource(this.stream)
       this.analyser = this.audioContext.createAnalyser()
-      this.analyser.fftSize = 2048 // Équilibré pour performance
-      this.analyser.smoothingTimeConstant = 0.8 // Plus stable
+      this.analyser.fftSize = 1024 // Plus simple
+      this.analyser.smoothingTimeConstant = 0.3 // Plus réactif
       source.connect(this.analyser)
       
       this.isInitialized = true
