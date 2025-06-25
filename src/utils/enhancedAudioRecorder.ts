@@ -20,23 +20,23 @@ export class EnhancedAudioRecorder {
     try {
       console.log('🎤 EnhancedAudioRecorder: Initializing...')
       
-      // Configuration audio optimisée pour meilleure détection vocale
+      // Configuration audio optimisée pour précision STT
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: true,  // Réactiver pour nettoyer l'audio
-          noiseSuppression: true,  // Réactiver pour éliminer bruit de fond
-          autoGainControl: true,   // Garder pour normaliser le volume
-          sampleRate: 44100,       // Fréquence plus élevée pour meilleure détection
+          echoCancellation: true,  // Nettoyer l'audio
+          noiseSuppression: true,  // Éliminer bruit de fond
+          autoGainControl: true,   // Normaliser le volume
+          sampleRate: 48000,       // Haute qualité pour précision
           channelCount: 1          // Mono pour STT
         } 
       })
       
       // Setup audio analysis pour détection de silence
-      this.audioContext = new AudioContext({ sampleRate: 44100 })
+      this.audioContext = new AudioContext({ sampleRate: 48000 })
       const source = this.audioContext.createMediaStreamSource(this.stream)
       this.analyser = this.audioContext.createAnalyser()
-      this.analyser.fftSize = 4096 // Plus de résolution pour meilleure détection vocale
-      this.analyser.smoothingTimeConstant = 0.1 // Plus réactif pour détecter rapidement
+      this.analyser.fftSize = 2048 // Équilibré pour performance
+      this.analyser.smoothingTimeConstant = 0.8 // Plus stable
       source.connect(this.analyser)
       
       this.isInitialized = true
@@ -76,7 +76,7 @@ export class EnhancedAudioRecorder {
         
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
-        audioBitsPerSecond: 256000 // Plus haute qualité pour meilleure détection
+        audioBitsPerSecond: 320000 // Très haute qualité pour précision STT
       })
       
       this.mediaRecorder.ondataavailable = (event) => {

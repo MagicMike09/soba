@@ -46,13 +46,16 @@ const SimpleConversation: React.FC<SimpleConversationProps> = ({
 
   useEffect(() => {
     if (isActive && currentStep === 'idle' && !isProcessing) {
-      setTimeout(() => {
-        if (isActive) {
+      console.log('🔄 Redémarrage automatique de l\'écoute...')
+      const timer = setTimeout(() => {
+        if (isActive && currentStep === 'idle' && !isProcessing) {
           startListening()
         }
-      }, 300)
+      }, 500) // Plus de délai pour stabilité
+      
+      return () => clearTimeout(timer)
     }
-  }, [isActive, currentStep])
+  }, [isActive, currentStep, isProcessing])
 
   // Simplification: suppression de l'interruption automatique pour éviter les conflits
 
@@ -68,11 +71,12 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       setCurrentStep('listening')
       
       await recorder.startRecording({
-        silenceThreshold: -40, // Équilibré: pas trop sensible au bruit ambiant
-        silenceTimeout: 1500,  // 1.5 secondes de silence pour déclencher
-        maxRecordingTime: 15000, // 15 secondes max pour réduire latence
+        silenceThreshold: -35, // Plus sensible pour ne pas manquer la parole
+        silenceTimeout: 2000,  // 2 secondes pour laisser finir les phrases
+        maxRecordingTime: 10000, // 10 secondes max pour rapidité
         onSilenceDetected: () => {
           if (recorder.isRecording()) {
+            console.log('🔇 Silence détecté, traitement de l\'enregistrement...')
             processRecording()
           }
         }
@@ -166,8 +170,16 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       await audioAPI.playAudioBuffer(audioBuffer)
       console.log('✅ Processus terminé: STT → LLM → TTS')
       
-      setCurrentStep('idle')
       onSpeakingChange?.(false)
+      setCurrentStep('idle')
+      
+      // Force le redémarrage de l'écoute après un délai
+      setTimeout(() => {
+        if (isActive && currentStep === 'idle') {
+          console.log('🔄 Force restart listening after response')
+          setCurrentStep('idle') // Trigger useEffect
+        }
+      }, 1000)
       
     } catch (error: unknown) {
       console.error('❌ Erreur dans le processus STT → LLM → TTS:', error)
