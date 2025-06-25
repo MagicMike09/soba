@@ -54,37 +54,7 @@ const SimpleConversation: React.FC<SimpleConversationProps> = ({
     }
   }, [isActive, currentStep])
 
-  // Démarrer l'écoute pour interruption automatique pendant que l'IA parle
-  useEffect(() => {
-    if (isActive && currentStep === 'speaking') {
-      let interruptionRecorder: EnhancedAudioRecorder | null = null
-      
-      const startInterruptionListening = async () => {
-        try {
-          interruptionRecorder = new EnhancedAudioRecorder()
-          await interruptionRecorder.startRecording({
-            silenceThreshold: -40, // Plus sensible pour détecter rapidement
-            silenceTimeout: 800,   // Très court pour réagir vite
-            onSilenceDetected: () => {
-              // L'utilisateur a parlé assez longtemps, on interrompt l'IA
-              console.log('🗣️ User speech detected during AI speaking - interrupting')
-              interruptAI()
-              interruptionRecorder?.cleanup()
-            }
-          })
-        } catch (error) {
-          console.error('Erreur écoute interruption:', error)
-        }
-      }
-      
-      startInterruptionListening()
-      
-      // Nettoyer quand on n'est plus en train de parler
-      return () => {
-        interruptionRecorder?.cleanup()
-      }
-    }
-  }, [currentStep, isActive])
+  // Simplification: suppression de l'interruption automatique pour éviter les conflits
 
   const buildSystemPrompt = (): string => {
     return `Tu es ${config.agentName || 'un assistant virtuel'}. 
@@ -116,14 +86,16 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
 
   const processRecording = async () => {
     try {
+      console.log('🎤 Processus simplifié: STT → LLM → TTS')
+      
       setCurrentStep('thinking')
       setIsProcessing(true)
-      onProcessingChange?.(true) // Notifier le parent: IA réfléchit
+      onProcessingChange?.(true)
       
       const audioBlob = await recorder.stopRecording()
       
-      // Vérification taille minimale - plus permissive
-      if (audioBlob.size < 1000) { // 1KB minimum
+      // Vérification taille minimale
+      if (audioBlob.size < 1000) {
         console.log('🎤 Audio trop court, ignoré. Taille:', audioBlob.size, 'bytes')
         setIsProcessing(false)
         setCurrentStep('idle')
@@ -131,45 +103,63 @@ Tu utilises les informations de notre base de connaissances pour répondre préc
         return
       }
       
-      console.log('🎤 Audio blob ready for STT. Size:', audioBlob.size, 'bytes, Type:', audioBlob.type)
+      console.log('🎤 Étape 1/3: STT - Conversion audio en texte')
+      console.log('Audio blob size:', audioBlob.size, 'bytes, Type:', audioBlob.type)
       
-      console.log('🎬 Starting AI processing (thinking)')
+      // Étape 1: STT - Speech to Text
+      const transcript = await audioAPI.speechToText(audioBlob, config.sttLanguage || 'fr')
       
-      const result = await audioAPI.completeConversationFlow(
-        audioBlob,
-        messages,
-        {
-          sttLanguage: config.sttLanguage || 'fr',
-          systemPrompt: buildSystemPrompt(),
-          userContext: userContext,
-          llmModel: config.llmModel || 'gpt-3.5-turbo',
-          temperature: config.temperature || 0.1,
-          ttsVoice: config.ttsVoice || 'alloy'
-        }
+      if (!transcript.trim()) {
+        console.log('❌ Aucune parole détectée')
+        setIsProcessing(false)
+        setCurrentStep('idle')
+        onProcessingChange?.(false)
+        return
+      }
+      
+      console.log('✅ STT terminé. Transcript:', transcript)
+      
+      // Étape 2: LLM - Génération de réponse
+      console.log('🧠 Étape 2/3: LLM - Génération de réponse')
+      const newMessages = [...messages, { role: 'user' as const, content: transcript }]
+      
+      const response = await audioAPI.generateResponse(
+        newMessages,
+        buildSystemPrompt(),
+        userContext,
+        config.llmModel || 'gpt-3.5-turbo',
+        config.temperature || 0.1
       )
       
-      const newMessages: Message[] = [
-        ...messages,
-        { role: 'user', content: result.transcript },
-        { role: 'assistant', content: result.response }
+      console.log('✅ LLM terminé. Response:', response.substring(0, 100) + '...')
+      
+      // Étape 3: TTS - Text to Speech
+      console.log('🔊 Étape 3/3: TTS - Conversion texte en audio')
+      const audioBuffer = await audioAPI.textToSpeech(response, config.ttsVoice || 'alloy')
+      
+      // Mettre à jour l'historique des messages
+      const finalMessages: Message[] = [
+        ...newMessages,
+        { role: 'assistant', content: response }
       ]
       
-      setMessages(newMessages.slice(-6)) // Garder seulement les 6 derniers messages
+      setMessages(finalMessages.slice(-6)) // Garder seulement les 6 derniers messages
       
+      // Lecture de la réponse
       setCurrentStep('speaking')
       setIsProcessing(false)
-      onProcessingChange?.(false) // Fin de la réflexion
-      onSpeakingChange?.(true) // Début de la parole
+      onProcessingChange?.(false)
+      onSpeakingChange?.(true)
       
-      console.log('🎬 AI speaking now')
-      await audioAPI.playAudioBuffer(result.audioBuffer)
-      console.log('🎬 AI finished speaking')
+      console.log('🔊 Lecture de la réponse audio')
+      await audioAPI.playAudioBuffer(audioBuffer)
+      console.log('✅ Processus terminé: STT → LLM → TTS')
       
       setCurrentStep('idle')
-      onSpeakingChange?.(false) // Fin de la parole
+      onSpeakingChange?.(false)
       
     } catch (error: unknown) {
-      console.error('Erreur traitement:', error)
+      console.error('❌ Erreur dans le processus STT → LLM → TTS:', error)
       setIsProcessing(false)
       setCurrentStep('idle')
       onProcessingChange?.(false)

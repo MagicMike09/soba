@@ -7,7 +7,7 @@ import Footer from '@/components/Footer'
 import InfoBox from '@/components/InfoBox'
 import AdvisorModal from '@/components/AdvisorModal'
 import HelpModal from '@/components/HelpModal'
-import ChatBox from '@/components/ChatBox'
+// import ChatBox from '@/components/ChatBox' // Désactivé pour éviter superposition
 import SimpleConversation from '@/components/SimpleConversation'
 import EmailDiagnostic from '@/components/EmailDiagnostic'
 import { ConversationProvider, useConversation } from '@/contexts/ConversationContext'
@@ -39,7 +39,7 @@ function MainContent() {
   const [showHelpModal, setShowHelpModal] = useState(false)
   const [showDiagnostic, setShowDiagnostic] = useState(false)
   const [showInfoBox, setShowInfoBox] = useState(true)
-  const [showChatBox, setShowChatBox] = useState(false)
+  // const [showChatBox, setShowChatBox] = useState(false) // Désactivé pour éviter superposition
   const [animationState, setAnimationState] = useState<AnimationState>('idle')
   
   const [isConversationMode, setIsConversationMode] = useState(false)
@@ -243,7 +243,7 @@ function MainContent() {
       }
       
       setIsConversationMode(false)
-      setShowChatBox(false)
+      // setShowChatBox(false) // Désactivé
       setShowFullConversation(false)
       setIsProcessing(false)
       setIsSpeaking(false)
@@ -265,47 +265,11 @@ function MainContent() {
       analyticsService.startConversation(sessionId, userContext)
       
       setIsConversationMode(true)
-      setShowChatBox(true)
+      // setShowChatBox(false) // Désactiver ChatBox pour éviter la superposition
       setShowFullConversation(true)
       
-      // Animation de salutation et TTS du message de bienvenue
+      // Animation de salutation - SimpleConversation gère maintenant le TTS
       changeAnimationSafely('hello', 3000)
-      
-      const welcomeMessage = { 
-        role: 'assistant' as const, 
-        content: 'Bonjour ! Je vous écoute, vous pouvez commencer à parler.' 
-      }
-      addMessage(welcomeMessage)
-      
-      // Jouer le message de bienvenue avec TTS et animations
-      if (audioAPI) {
-        setTimeout(async () => {
-          try {
-            console.log('🔊 Playing welcome message with TTS')
-            setIsSpeaking(true) // Déclencher animation talking
-            
-            // Générer l'audio pour le message de bienvenue
-            const audioBuffer = await audioAPI.textToSpeech(
-              welcomeMessage.content,
-              aiConfig?.ttsVoice || 'alloy'
-            )
-            if (audioBuffer) {
-              await audioAPI.playAudioBuffer(audioBuffer)
-              console.log('🔊 Welcome message TTS completed')
-            }
-            
-            setIsSpeaking(false) // Fin de l'animation talking
-          } catch (error) {
-            console.error('❌ Error playing welcome TTS:', error)
-            setIsSpeaking(false)
-          }
-        }, 1000) // Délai pour laisser l'animation hello se terminer
-      }
-      
-      // Tracker le message de bienvenue
-      if (sessionId) {
-        analyticsService.addMessage(sessionId, welcomeMessage)
-      }
     }
   }, [audioAPI, isConversationMode, addMessage])
 
@@ -416,14 +380,7 @@ function MainContent() {
         userContext={userContext}
       />
 
-      <ChatBox
-        messages={messages}
-        isRecording={isRecording}
-        isProcessing={false}
-        currentTranscript=""
-        onToggle={() => setShowChatBox(!showChatBox)}
-        isVisible={showChatBox}
-      />
+      {/* ChatBox désactivé pour éviter superposition avec SimpleConversation */}
 
       {/* Simple Conversation Component */}
       {showFullConversation && audioAPI && aiConfig && (
