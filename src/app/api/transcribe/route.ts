@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const openai = getOpenAIClient(apiKey)
     
-    console.log('🎙️ STT API: Processing audio file:', audioFile.name, 'Size:', audioFile.size)
+    console.log('🎙️ STT API: Processing audio file:', audioFile.name, 'Size:', audioFile.size, 'Type:', audioFile.type)
     
     // Convert File to format compatible with OpenAI Whisper
     const audioBuffer = await audioFile.arrayBuffer()
