@@ -144,7 +144,7 @@ export class EnhancedAudioRecorder {
       
       // Détection intelligente: nécessite à la fois niveau ET pics significatifs
       const hasAudioActivity = decibels > silenceThreshold
-      const hasSpeechPeaks = strongPeakCount > bufferLength * 0.02 // 2% de pics forts requis
+      const hasSpeechPeaks = strongPeakCount > bufferLength * 0.05 // 5% de pics forts requis
       const hasSpeech = hasAudioActivity && hasSpeechPeaks
       
       // Logging détaillé pour debug

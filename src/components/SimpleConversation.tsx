@@ -94,8 +94,8 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       
       const audioBlob = await recorder.stopRecording()
       
-      // Vérification taille minimale
-      if (audioBlob.size < 1000) {
+      // Vérification taille ET durée minimale
+      if (audioBlob.size < 5000) { // Au moins 5KB pour éviter bruit
         console.log('🎤 Audio trop court, ignoré. Taille:', audioBlob.size, 'bytes')
         setIsProcessing(false)
         setCurrentStep('idle')
@@ -109,8 +109,19 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       // Étape 1: STT - Speech to Text
       const transcript = await audioAPI.speechToText(audioBlob, config.sttLanguage || 'fr')
       
-      if (!transcript.trim()) {
-        console.log('❌ Aucune parole détectée')
+      // Vérifications de validité de la transcription
+      if (!transcript.trim() || transcript.trim().length < 3) {
+        console.log('❌ Transcription trop courte ou vide:', transcript)
+        setIsProcessing(false)
+        setCurrentStep('idle')
+        onProcessingChange?.(false)
+        return
+      }
+      
+      // Filtrer les transcriptions suspectes (bruits, hallucinations)
+      const suspiciousWords = ['hallucination', 'ponctuation', 'transcription', 'français']
+      if (suspiciousWords.some(word => transcript.toLowerCase().includes(word))) {
+        console.log('❌ Transcription suspecte (hallucination):', transcript)
         setIsProcessing(false)
         setCurrentStep('idle')
         onProcessingChange?.(false)

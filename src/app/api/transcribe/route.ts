@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       model: "whisper-1",
       language: language === 'auto' ? undefined : language,
       response_format: "verbose_json", // Plus de détails pour debugging
-      temperature: 0.0, // Plus déterministe
-      prompt: "Transcription en français. Ponctuation correcte. Éviter les hallucinations."
+      temperature: 0.0 // Plus déterministe
+      // Pas de prompt pour éviter les hallucinations
     })
     
     console.log('✅ STT API: Transcription completed:', {
