@@ -87,9 +87,9 @@ export async function POST(request: NextRequest) {
       file: audioFileForAPI,
       model: "whisper-1",
       language: language === 'auto' ? undefined : language,
-      response_format: "verbose_json", // Plus de détails pour debugging
-      temperature: 0.0 // Plus déterministe
-      // Pas de prompt pour éviter les hallucinations
+      response_format: "verbose_json",
+      temperature: 0.0,
+      prompt: "Conversation en français avec un assistant virtuel. Transcription précise avec ponctuation correcte."
     })
     
     console.log('✅ STT API: Transcription completed:', {

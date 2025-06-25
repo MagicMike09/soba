@@ -20,14 +20,14 @@ export class EnhancedAudioRecorder {
     try {
       console.log('🎤 EnhancedAudioRecorder: Initializing...')
       
-      // Configuration audio optimisée pour précision STT
+      // Configuration audio optimisée pour précision maximale STT
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: true,  // Nettoyer l'audio
-          noiseSuppression: true,  // Éliminer bruit de fond
-          autoGainControl: true,   // Normaliser le volume
-          sampleRate: 48000,       // Haute qualité pour précision
-          channelCount: 1          // Mono pour STT
+          echoCancellation: true,   // Nettoyer l'audio
+          noiseSuppression: false,  // Désactiver pour préserver la voix naturelle
+          autoGainControl: true,    // Normaliser le volume
+          sampleRate: 48000,        // Haute qualité pour précision
+          channelCount: 1           // Mono pour STT
         } 
       })
       
@@ -82,7 +82,7 @@ export class EnhancedAudioRecorder {
         
       this.mediaRecorder = new MediaRecorder(this.stream, {
         mimeType,
-        audioBitsPerSecond: 320000 // Très haute qualité pour précision STT
+        audioBitsPerSecond: 128000 // Qualité optimale pour STT sans surcharger
       })
       
       this.mediaRecorder.ondataavailable = (event) => {
@@ -110,7 +110,7 @@ export class EnhancedAudioRecorder {
         )
       }
       
-      this.mediaRecorder.start(100) // Enregistrement par chunks de 100ms pour plus de réactivité
+      this.mediaRecorder.start(250) // Chunks de 250ms pour qualité optimale
       console.log('✅ EnhancedAudioRecorder: Recording started')
       
     } catch (error) {

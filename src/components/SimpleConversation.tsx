@@ -78,9 +78,9 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       setCurrentStep('listening')
       
       await recorder.startRecording({
-        silenceThreshold: -35, // Plus sensible pour ne pas manquer la parole
-        silenceTimeout: 2000,  // 2 secondes pour laisser finir les phrases
-        maxRecordingTime: 10000, // 10 secondes max pour rapidité
+        silenceThreshold: -30, // Équilibré pour vraie parole vs bruit
+        silenceTimeout: 2500,  // 2.5 secondes pour phrases complètes
+        maxRecordingTime: 15000, // 15 secondes pour phrases longues
         onSilenceDetected: () => {
           if (recorder.isRecording()) {
             console.log('🔇 Silence détecté, traitement de l\'enregistrement...')
@@ -105,9 +105,9 @@ Utilise les informations disponibles pour donner des réponses précises et rapi
       
       const audioBlob = await recorder.stopRecording()
       
-      // Vérification taille ET durée minimale
-      if (audioBlob.size < 5000) { // Au moins 5KB pour éviter bruit
-        console.log('🎤 Audio trop court, ignoré. Taille:', audioBlob.size, 'bytes')
+      // Vérification taille pour qualité transcription
+      if (audioBlob.size < 8000) { // Au moins 8KB pour phrase significative
+        console.log('🎤 Audio trop court pour transcription précise. Taille:', audioBlob.size, 'bytes')
         setIsProcessing(false)
         setCurrentStep('idle')
         onProcessingChange?.(false)
